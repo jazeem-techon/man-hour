@@ -1,43 +1,60 @@
 import { NavLink, Outlet } from 'react-router';
-import { LayoutDashboard, Clock, Users, Briefcase, UserCircle, Calendar as CalendarIcon, FileText, Menu } from 'lucide-react';
+import { LayoutDashboard, Clock, Briefcase, UserCircle, Calendar as CalendarIcon, FileText, Menu } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
-const navItems = [
+import { useAuth } from '@/features/auth/hooks/useAuth';
+
+type NavItem = {
+  to: string;
+  label: string;
+  icon: any;
+  adminOnly?: boolean;
+};
+
+const navItems: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/manhours', label: 'Log Hours', icon: Clock },
-  { to: '/employees', label: 'Employees', icon: Users },
+  { to: '/manhours', label: 'Log Hours', icon: Clock, adminOnly: true },
   { to: '/projects', label: 'Projects', icon: Briefcase },
-  { to: '/salespersons', label: 'Salespersons', icon: UserCircle },
+  { to: '/salespersons', label: 'Salespersons', icon: UserCircle, adminOnly: true },
   { to: '/leaves', label: 'Leaves', icon: CalendarIcon },
-  { to: '/reports/by-employee', label: 'Report: By Employee', icon: FileText },
+  { to: '/reports/by-employee', label: 'Report: By Employee', icon: FileText, adminOnly: true },
   { to: '/reports/by-project', label: 'Report: By Project', icon: FileText },
 ];
 
-const NavLinks = ({ onClick }: { onClick?: () => void }) => (
-  <div className="flex flex-col space-y-1">
-    {navItems.map((item) => (
-      <NavLink
-        key={item.to}
-        to={item.to}
-        onClick={onClick}
-        className={({ isActive }) =>
-          cn(
-            "flex items-center px-4 py-3 text-sm font-medium rounded-md transition-colors",
-            isActive
-              ? "bg-blue-700 text-white"
-              : "text-blue-100 hover:bg-blue-800 hover:text-white"
-          )
-        }
-      >
-        <item.icon className="mr-3 h-5 w-5" />
-        {item.label}
-      </NavLink>
-    ))}
-  </div>
-);
+const NavLinks = ({ onClick }: { onClick?: () => void }) => {
+  const { isAdmin } = useAuth();
+  
+  const filteredNavItems = navItems.filter(item => {
+    if (item.adminOnly && !isAdmin) return false;
+    return true;
+  });
+
+  return (
+    <div className="flex flex-col space-y-1">
+      {filteredNavItems.map((item) => (
+        <NavLink
+          key={item.to}
+          to={item.to}
+          onClick={onClick}
+          className={({ isActive }) =>
+            cn(
+              "flex items-center px-4 py-3 text-sm font-medium rounded-md transition-colors",
+              isActive
+                ? "bg-blue-700 text-white"
+                : "text-blue-100 hover:bg-blue-800 hover:text-white"
+            )
+          }
+        >
+          <item.icon className="mr-3 h-5 w-5" />
+          {item.label}
+        </NavLink>
+      ))}
+    </div>
+  );
+};
 
 export function SidebarLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);

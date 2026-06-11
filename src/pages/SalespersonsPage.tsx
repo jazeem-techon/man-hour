@@ -1,11 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo, Component, ErrorInfo, ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { salespersons, projects } from '@/data/mockData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { 
@@ -13,45 +14,113 @@ import {
   getCoreRowModel, 
   getPaginationRowModel, 
   getSortedRowModel,
+  getFilteredRowModel,
   flexRender, 
   SortingState,
+  ColumnFiltersState,
+  VisibilityState,
   ColumnDef
 } from '@tanstack/react-table';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowUpDown, Trash2 } from 'lucide-react';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { ArrowUpDown, Loader2, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { fetchSalespeopleWithTargets, saveTarget } from '@/api/manhourTrackerApi';
+import { formatCurrency } from '@/lib/utils';
 
 const formSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
+  salesPersonId: z.string().min(1, 'Salesperson is required'),
+  month: z.coerce.number().min(1).max(12),
+  year: z.coerce.number().min(2000),
+  targetType: z.enum(['revenueTarget', 'gpTarget', 'netProfitTarget']),
+  amount: z.coerce.number().min(0, 'Target must be a positive number'),
 });
 
-type SalespersonWithStats = typeof salespersons[0] & {
-  projectCount: number;
-};
+class ErrorBoundary extends Component<{children: ReactNode}, {hasError: boolean, error: Error | null}> {
+  constructor(props: {children: ReactNode}) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return <div className="p-10 text-red-600 bg-red-50 rounded-md border border-red-200">
+        <h2 className="text-2xl font-bold mb-4">Something went wrong.</h2>
+        <pre className="whitespace-pre-wrap">{this.state.error?.toString()}</pre>
+        <pre className="whitespace-pre-wrap text-sm mt-4">{this.state.error?.stack}</pre>
+      </div>;
+    }
+    return this.props.children;
+  }
+}
+
 
 export function SalespersonsPage() {
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [data, setData] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: '', email: '' },
+    defaultValues: { 
+      salesPersonId: '', 
+      month: new Date().getMonth() + 1, 
+      year: new Date().getFullYear(), 
+      targetType: 'revenueTarget',
+      amount: 0 
+    },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    toast.success('Salesperson added successfully!');
-    form.reset();
+  const selectedSalesPersonId = form.watch('salesPersonId');
+  const selectedSalesperson = data.find(s => s._id === selectedSalesPersonId);
+
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetchSalespeopleWithTargets();
+      setData(Array.isArray(res) ? res : (res?.data || []));
+    } catch (error) {
+      console.error("Failed to fetch salespeople", error);
+      toast.error("Failed to load salespeople data");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      const existingTarget = selectedSalesperson?.target || { revenueTarget: 0, gpTarget: 0, netProfitTarget: 0 };
+      
+      const payload = {
+        salesPersonId: values.salesPersonId,
+        month: values.month,
+        year: values.year,
+        revenueTarget: values.targetType === 'revenueTarget' ? values.amount : (existingTarget.revenueTarget || 0),
+        gpTarget: values.targetType === 'gpTarget' ? values.amount : (existingTarget.gpTarget || 0),
+        netProfitTarget: values.targetType === 'netProfitTarget' ? values.amount : (existingTarget.netProfitTarget || 0),
+      };
+
+      await saveTarget(payload);
+      toast.success('Target updated successfully!');
+      form.reset({ ...values, amount: 0 }); // keep selected salesperson/month but reset amount
+      loadData(); // refresh data
+    } catch (error) {
+      console.error("Failed to update target", error);
+      toast.error("Failed to update target");
+    }
   }
 
-  const salespersonData: SalespersonWithStats[] = useMemo(() => salespersons.map(s => {
-    return {
-      ...s,
-      projectCount: projects.filter(p => p.salespersonId === s._id).length
-    };
-  }), []);
-
-  const columns = useMemo<ColumnDef<SalespersonWithStats>[]>(() => [
+  const columns = useMemo<ColumnDef<any>[]>(() => [
     {
       accessorKey: 'name',
       header: ({ column }) => (
@@ -69,103 +138,216 @@ export function SalespersonsPage() {
       ),
     },
     {
-      accessorKey: 'projectCount',
+      accessorKey: 'target.revenueTarget',
       header: ({ column }) => (
         <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Projects Assigned <ArrowUpDown className="ml-2 h-4 w-4" />
+          Revenue Target <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
-      cell: ({ row }) => <div className="text-right font-medium">{row.getValue('projectCount')}</div>
+      cell: ({ row }) => {
+        const t = row.original?.target?.revenueTarget as number;
+        return <div className="text-right font-medium">{t ? formatCurrency(t) : '-'}</div>;
+      }
     },
     {
-      accessorKey: 'createdAt',
+      accessorKey: 'target.gpTarget',
       header: ({ column }) => (
-        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Created Date <ArrowUpDown className="ml-2 h-4 w-4" />
+        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          GP Target <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
+      cell: ({ row }) => {
+        const t = row.original?.target?.gpTarget as number;
+        return <div className="text-right font-medium">{t ? formatCurrency(t) : '-'}</div>;
+      }
     },
     {
-      id: 'actions',
-      header: 'Actions',
-      cell: ({ row }) => (
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="destructive" size="sm"><Trash2 className="h-4 w-4 mr-2" /> Delete</Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete salesperson {row.getValue('name')}.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={() => toast.success('Salesperson deleted')}>Delete</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      )
+      accessorKey: 'target.netProfitTarget',
+      header: ({ column }) => (
+        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          NP Target <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const t = row.original?.target?.netProfitTarget as number;
+        return <div className="text-right font-medium">{t ? formatCurrency(t) : '-'}</div>;
+      }
+    },
+    {
+      accessorKey: 'actuals.revenue',
+      header: ({ column }) => (
+        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          Actual Revenue <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const rev = row.original?.actuals?.revenue as number;
+        return <div className="text-right font-medium text-green-700">{rev ? formatCurrency(rev) : '-'}</div>;
+      }
+    },
+    {
+      accessorKey: 'actuals.totalCost',
+      header: ({ column }) => (
+        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          Total Cost <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const tc = row.original?.actuals?.totalCost as number;
+        return <div className="text-right font-medium text-red-600">{tc ? formatCurrency(tc) : '-'}</div>;
+      }
+    },
+    {
+      accessorKey: 'actuals.grossProfit',
+      header: ({ column }) => (
+        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          Gross Profit <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const gp = row.original?.actuals?.grossProfit as number;
+        return <div className={`text-right font-medium ${gp < 0 ? 'text-red-600' : 'text-green-700'}`}>{gp ? formatCurrency(gp) : '-'}</div>;
+      }
+    },
+    {
+      accessorKey: 'actuals.margin',
+      header: ({ column }) => (
+        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          Margin % <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const margin = row.original?.actuals?.margin as number;
+        return <div className="text-right font-medium">{margin ? `${margin.toFixed(2)}%` : '-'}</div>;
+      }
+    },
+    {
+      accessorKey: 'actuals.loggedHours',
+      header: ({ column }) => (
+        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          Logged Hours <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => <div className="text-right font-medium">{row.original?.actuals?.loggedHours || 0}h</div>
     }
   ], []);
 
   const table = useReactTable({
-    data: salespersonData,
+    data,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
     onSortingChange: setSorting,
-    state: { sorting },
+    onColumnFiltersChange: setColumnFilters,
+    onColumnVisibilityChange: setColumnVisibility,
+    state: { 
+      sorting,
+      columnFilters,
+      columnVisibility,
+    },
     initialState: {
       pagination: { pageSize: 5 },
     },
   });
 
+  if (isLoading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
+    <ErrorBoundary>
+      <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight text-blue-900">Salespersons</h2>
-        <p className="text-muted-foreground">Manage your sales team.</p>
+        <h2 className="text-3xl font-bold tracking-tight text-blue-900">Salespersons & Targets</h2>
+        <p className="text-muted-foreground">Manage your sales team and set revenue targets.</p>
       </div>
 
       <Card className="border-blue-100 shadow-md">
         <CardHeader>
-          <CardTitle className="text-blue-900">Add New Salesperson</CardTitle>
+          <CardTitle className="text-blue-900">Set Salesperson Target</CardTitle>
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col md:flex-row gap-4 items-start md:items-end">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem className="flex-1 w-full">
-                    <FormLabel>Full Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g. John Doe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem className="flex-1 w-full">
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input placeholder="john@company.ae" type="email" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" className="w-full md:w-auto bg-blue-600 hover:bg-blue-700">
-                Add Salesperson
-              </Button>
+            <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control as any}
+                  name="salesPersonId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Salesperson</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Salesperson" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {data.map(sp => (
+                            <SelectItem key={sp._id} value={sp._id}>{sp.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input readOnly value={selectedSalesperson?.email || 'Select a salesperson to view email'} className="bg-gray-50 text-gray-500" />
+                </div>
+
+
+
+                <FormField
+                  control={form.control as any}
+                  name="targetType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Target Type</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select target type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="revenueTarget">Revenue Target</SelectItem>
+                          <SelectItem value="gpTarget">Gross Profit Target</SelectItem>
+                          <SelectItem value="netProfitTarget">Net Profit Target</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control as any}
+                  name="amount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Amount (AED)</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="Enter amount" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="flex justify-end pt-2">
+                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 px-8">
+                  Save Target
+                </Button>
+              </div>
             </form>
           </Form>
         </CardContent>
@@ -176,6 +358,42 @@ export function SalespersonsPage() {
           <CardTitle className="text-blue-900">Salesperson Directory</CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="flex items-center py-4 justify-between px-2">
+            <Input
+              placeholder="Filter names..."
+              value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
+              onChange={(event) =>
+                table.getColumn("name")?.setFilterValue(event.target.value)
+              }
+              className="max-w-sm"
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="ml-auto">
+                  Columns <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {table
+                  .getAllColumns()
+                  .filter((column) => column.getCanHide())
+                  .map((column) => {
+                    return (
+                      <DropdownMenuCheckboxItem
+                        key={column.id}
+                        className="capitalize"
+                        checked={column.getIsVisible()}
+                        onCheckedChange={(value) =>
+                          column.toggleVisibility(!!value)
+                        }
+                      >
+                        {column.id.replace('target.', 'Target: ').replace('actuals.', 'Actual: ')}
+                      </DropdownMenuCheckboxItem>
+                    )
+                  })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
           <div className="rounded-md border">
             <Table>
               <TableHeader>
@@ -212,16 +430,60 @@ export function SalespersonsPage() {
               </TableBody>
             </Table>
           </div>
-          <div className="flex items-center justify-end space-x-2 py-4">
-            <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
-              Previous
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
-              Next
-            </Button>
+          <div className="flex items-center justify-between px-2 py-4">
+            <div className="flex-1 text-sm text-muted-foreground">
+              {table.getFilteredRowModel().rows.length} row(s) total.
+            </div>
+            <div className="flex items-center space-x-6 lg:space-x-8">
+              <div className="flex items-center space-x-2">
+                <p className="text-sm font-medium">Rows per page</p>
+                <Select
+                  value={`${table.getState().pagination.pageSize}`}
+                  onValueChange={(value) => {
+                    table.setPageSize(Number(value))
+                  }}
+                >
+                  <SelectTrigger className="h-8 w-[70px]">
+                    <SelectValue placeholder={table.getState().pagination.pageSize} />
+                  </SelectTrigger>
+                  <SelectContent side="top">
+                    {[5, 10, 20, 50].map((pageSize) => (
+                      <SelectItem key={pageSize} value={`${pageSize}`}>
+                        {pageSize}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                Page {table.getState().pagination.pageIndex + 1} of{" "}
+                {table.getPageCount() || 1}
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  className="h-8 w-8 p-0"
+                  onClick={() => table.previousPage()}
+                  disabled={!table.getCanPreviousPage()}
+                >
+                  <span className="sr-only">Go to previous page</span>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-8 w-8 p-0"
+                  onClick={() => table.nextPage()}
+                  disabled={!table.getCanNextPage()}
+                >
+                  <span className="sr-only">Go to next page</span>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
     </div>
+    </ErrorBoundary>
   );
 }

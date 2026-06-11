@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { projects, employees } from '@/data/mockData';
+import { Project, Employee } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -11,47 +12,76 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-import { CalendarIcon, AlertTriangle } from 'lucide-react';
+import { CalendarIcon, AlertTriangle, Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { submitManHourLog } from '@/api/manhourTrackerApi';
 
 const formSchema = z.object({
   projectId: z.string().min(1, 'Please select a project'),
-  employeeId: z.string().min(1, 'Please select an employee'),
+  employeeIds: z.array(z.string()).min(1, 'Please select at least one employee'),
+  task: z.string().min(1, 'Please select a task'),
   hours: z.number().min(0.5, 'Must be at least 0.5 hours').step(0.5),
   date: z.date(),
   note: z.string(),
 });
 
-export function ManHoursPage() {
-  const activeProjects = projects.filter(p => p.isActive);
-  const activeAvailableEmployees = employees.filter(e => e.isActive && !e.isOnLeave);
-  const employeesOnLeave = employees.filter(e => e.isActive && e.isOnLeave);
+interface ManHoursFormProps {
+  projects: Project[];
+  employees: Employee[];
+}
+
+export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
+  const activeAvailableEmployees = employees.filter(e => !e.isOnLeave);
+  const employeesOnLeave = employees.filter(e => e.isOnLeave);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       projectId: '',
-      employeeId: '',
+      employeeIds: [],
+      task: '',
       hours: 8,
       date: new Date(),
       note: '',
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    toast.success('Hours logged successfully!');
-    form.reset({ hours: 8, date: new Date(), note: '', projectId: '', employeeId: '' });
+  const selectedProjectId = form.watch('projectId');
+  const selectedProject = projects.find(p => p._id === selectedProjectId);
+  
+  const projectTasks = selectedProject?.tasks || [];
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsSubmitting(true);
+    try {
+      const promises = values.employeeIds.map(employeeId => 
+        submitManHourLog({
+          projectId: values.projectId,
+          employeeId: employeeId,
+          task: values.task,
+          hours: values.hours,
+          date: format(values.date, 'yyyy-MM-dd'),
+          note: values.note
+        })
+      );
+      
+      await Promise.all(promises);
+      
+      toast.success(`Successfully logged hours for ${values.employeeIds.length} employee(s)!`);
+      form.reset({ hours: 8, date: new Date(), note: '', projectId: '', employeeIds: [], task: '' });
+    } catch (error: any) {
+      console.error('Failed to log hours:', error);
+      toast.error(error.response?.data?.message || 'Failed to log hours');
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight text-blue-900">Log Man-Hours</h2>
-        <p className="text-muted-foreground">Record daily hours for your active projects.</p>
-      </div>
-
+    <div className="space-y-6">
       {employeesOnLeave.length > 0 && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-md flex items-start shadow-sm">
           <AlertTriangle className="h-5 w-5 text-yellow-600 mr-3 mt-0.5 shrink-0" />
@@ -87,8 +117,8 @@ export function ManHoursPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {activeProjects.map(p => (
-                            <SelectItem key={p._id} value={p._id}>{p.name}</SelectItem>
+                          {projects.map(p => (
+                            <SelectItem key={p._id} value={p._id}>{p.projectName || p.name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -99,20 +129,92 @@ export function ManHoursPage() {
 
                 <FormField
                   control={form.control as any}
-                  name="employeeId"
+                  name="employeeIds"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col pt-2.5">
+                      <FormLabel className="mb-1">Employees</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className={cn(
+                                "w-full justify-between font-normal",
+                                !field.value?.length && "text-muted-foreground"
+                              )}
+                            >
+                              <div className="flex-1 truncate text-left pr-2">
+                                {field.value?.length > 0
+                                  ? activeAvailableEmployees
+                                      .filter(e => field.value.includes(e._id))
+                                      .map(e => e.name)
+                                      .join(', ')
+                                  : "Select employees"}
+                              </div>
+                              <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[300px] lg:w-[400px] p-2" align="start">
+                          <div className="max-h-[200px] overflow-y-auto space-y-1">
+                            {activeAvailableEmployees.map((e) => {
+                              const isSelected = field.value?.includes(e._id);
+                              return (
+                                <div
+                                  key={e._id}
+                                  className={cn(
+                                    "flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm cursor-pointer transition-colors hover:bg-slate-100",
+                                    isSelected ? "bg-blue-50 text-blue-900 font-medium" : ""
+                                  )}
+                                  onClick={() => {
+                                    const current = field.value || [];
+                                    const updated = isSelected
+                                      ? current.filter((id: string) => id !== e._id)
+                                      : [...current, e._id];
+                                    field.onChange(updated);
+                                  }}
+                                >
+                                  <div className={cn(
+                                    "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-primary",
+                                    isSelected ? "bg-primary text-primary-foreground" : "opacity-50"
+                                  )}>
+                                    {isSelected && <Check className="h-3 w-3" />}
+                                  </div>
+                                  <span>{e.name}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control as any}
+                  name="task"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Employee</FormLabel>
+                      <FormLabel>Task</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select an employee" />
+                            <SelectValue placeholder="Select a task" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {activeAvailableEmployees.map(e => (
-                            <SelectItem key={e._id} value={e._id}>{e.name}</SelectItem>
-                          ))}
+                          {projectTasks.map((task: any) => {
+                            const taskLabel = task.description || task.taskName || (typeof task === 'string' ? task : 'Unknown Task');
+                            const taskId = task._id || taskLabel;
+                            return (
+                              <SelectItem key={taskId} value={taskId}>
+                                {taskLabel}
+                              </SelectItem>
+                            );
+                          })}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -195,8 +297,8 @@ export function ManHoursPage() {
                 )}
               />
 
-              <Button type="submit" className="w-full md:w-auto bg-blue-600 hover:bg-blue-700">
-                Log Hours
+              <Button type="submit" disabled={isSubmitting} className="w-full md:w-auto bg-blue-600 hover:bg-blue-700">
+                {isSubmitting ? 'Logging...' : 'Log Hours'}
               </Button>
             </form>
           </Form>
