@@ -1,67 +1,95 @@
-import React, { useState, useMemo } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { projects, salespersons, manHours } from '@/data/mockData';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useState, useEffect, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { formatCurrency } from '@/lib/utils';
 import { 
   useReactTable, 
   getCoreRowModel, 
   getPaginationRowModel, 
   getSortedRowModel,
+  getFilteredRowModel,
   flexRender, 
   SortingState,
+  ColumnFiltersState,
+  VisibilityState,
   ColumnDef
 } from '@tanstack/react-table';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowUpDown } from 'lucide-react';
+import { ArrowUpDown, Loader2, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Link } from 'react-router';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { 
+  fetchManhourProjects 
+} from '@/api/manhourTrackerApi';
 
-const formSchema = z.object({
-  name: z.string().min(2, 'Project name must be at least 2 characters'),
-  salespersonId: z.string().min(1, 'Please select a salesperson'),
-  isActive: z.boolean(),
-});
 
-type ProjectWithStats = typeof projects[0] & {
-  salespersonName: string;
-  totalHours: number;
-  employeeCount: number;
-};
 
 export function ProjectsPage() {
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [data, setData] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: { name: '', salespersonId: '', isActive: true },
-  });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    toast.success('Project added successfully!');
-    form.reset({ name: '', salespersonId: '', isActive: true });
-  }
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      const projectsRes = await fetchManhourProjects();
+      setData(Array.isArray(projectsRes) ? projectsRes : (projectsRes?.data || []));
+    } catch (error) {
+      console.error("Failed to fetch data", error);
+      toast.error("Failed to load page data");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const projectData: ProjectWithStats[] = useMemo(() => projects.map(p => {
-    const sp = salespersons.find(s => s._id === p.salespersonId);
-    const pManHours = manHours.filter(mh => mh.projectId === p._id);
-    return {
-      ...p,
-      salespersonName: sp?.name || 'Unknown',
-      totalHours: pManHours.reduce((sum, mh) => sum + mh.hours, 0),
-      employeeCount: new Set(pManHours.map(mh => mh.employeeId)).size
-    };
-  }), []);
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const columns = useMemo<ColumnDef<ProjectWithStats>[]>(() => [
+
+  const columns = useMemo<ColumnDef<any>[]>(() => [
     {
-      accessorKey: 'name',
+      accessorKey: 'createdAt',
+      header: ({ column }) => (
+        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          Date <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const date = row.getValue('createdAt');
+        return <div>{date ? new Date(date as string).toLocaleDateString() : '-'}</div>;
+      }
+    },
+    {
+      accessorKey: 'projectId',
+      header: 'ID',
+      cell: ({ row }) => {
+        const pId = row.original?._id;
+        const displayId = row.getValue('projectId') as string;
+        return (
+          <Link to={`/projects/${pId}`} className="text-blue-600 hover:underline font-medium">
+            {displayId}
+          </Link>
+        );
+      }
+    },
+    {
+      accessorKey: 'customer',
+      header: 'Customer',
+      cell: ({ row }) => {
+        const cust = row.original?.customerId;
+        return <div>{cust?.name || '-'}</div>;
+      }
+    },
+    {
+      accessorKey: 'projectName',
       header: ({ column }) => (
         <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
           Project Name <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -72,61 +100,95 @@ export function ProjectsPage() {
       accessorKey: 'salespersonName',
       header: ({ column }) => (
         <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Salesperson <ArrowUpDown className="ml-2 h-4 w-4" />
+          Sales Man <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
+      cell: ({ row }) => {
+        const spName = row.getValue('salespersonName') || 
+                       row.original?.salesperson?.name || 
+                       row.original?.salesPersonId?.name || 
+                       row.original?.salesperson;
+        return <div>{spName as string || 'Not Assigned'}</div>;
+      }
     },
     {
-      accessorKey: 'isActive',
+      accessorKey: 'status',
       header: 'Status',
       cell: ({ row }) => {
-        const isActive = row.getValue('isActive') as boolean;
+        const status = row.getValue('status') as string;
+        const isActive = status === 'In progress' || status === 'Active';
         return (
           <Badge variant={isActive ? "default" : "secondary"} className={isActive ? "bg-blue-100 text-blue-800 hover:bg-blue-200 border-none" : ""}>
-            {isActive ? 'Active' : 'Inactive'}
+            {status || 'Unknown'}
           </Badge>
         );
       }
     },
     {
-      accessorKey: 'totalHours',
+      accessorKey: 'financials.revenue',
+      header: ({ column }) => (
+        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          Revenue <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const rev = row.original.financials?.revenue;
+        return <div className="text-right font-medium">{rev ? formatCurrency(rev) : '-'}</div>;
+      }
+    },
+    {
+      accessorKey: 'financials.totalCost',
+      header: ({ column }) => (
+        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          Total Cost <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const cost = row.original.financials?.totalCost;
+        return <div className="text-right font-medium">{cost ? formatCurrency(cost) : '-'}</div>;
+      }
+    },
+    {
+      accessorKey: 'financials.loggedHours',
       header: ({ column }) => (
         <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
           Total Hours <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
-      cell: ({ row }) => <div className="text-right font-medium">{row.getValue('totalHours')}h</div>
-    },
-    {
-      accessorKey: 'employeeCount',
-      header: ({ column }) => (
-        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Employees <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      ),
-      cell: ({ row }) => <div className="text-right">{row.getValue('employeeCount')}</div>
-    },
-    {
-      id: 'actions',
-      header: 'Actions',
-      cell: () => (
-        <Button variant="outline" size="sm" onClick={() => toast.success('Status toggled')}>Toggle Status</Button>
-      )
+      cell: ({ row }) => {
+        const hrs = row.original?.financials?.loggedHours as number;
+        return <div className="text-right font-medium">{hrs || 0}h</div>;
+      }
     }
   ], []);
 
   const table = useReactTable({
-    data: projectData,
+    data,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
     onSortingChange: setSorting,
-    state: { sorting },
+    onColumnFiltersChange: setColumnFilters,
+    onColumnVisibilityChange: setColumnVisibility,
+    state: { 
+      sorting,
+      columnFilters,
+      columnVisibility,
+    },
     initialState: {
       pagination: { pageSize: 5 },
     },
   });
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -135,82 +197,48 @@ export function ProjectsPage() {
         <p className="text-muted-foreground">Manage projects and assigned salespersons.</p>
       </div>
 
-      <Card className="border-blue-100 shadow-md">
-        <CardHeader>
-          <CardTitle className="text-blue-900">Add New Project</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col md:flex-row gap-4 items-start md:items-end">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem className="flex-1 w-full">
-                    <FormLabel>Project Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g. Dubai Metro Expansion" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="salespersonId"
-                render={({ field }) => (
-                  <FormItem className="flex-1 w-full">
-                    <FormLabel>Salesperson</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a salesperson" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {salespersons.map(s => (
-                          <SelectItem key={s._id} value={s._id}>{s.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="isActive"
-                render={({ field }) => (
-                  <FormItem className="flex-1 w-full">
-                    <FormLabel>Status</FormLabel>
-                    <Select onValueChange={(val) => field.onChange(val === 'true')} value={field.value ? 'true' : 'false'}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="true">Active</SelectItem>
-                        <SelectItem value="false">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" className="w-full md:w-auto bg-blue-600 hover:bg-blue-700">
-                Add Project
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
 
       <Card className="border-blue-100 shadow-md">
         <CardHeader>
           <CardTitle className="text-blue-900">Projects Directory</CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="flex items-center py-4 justify-between px-2">
+            <Input
+              placeholder="Filter projects..."
+              value={(table.getColumn("projectName")?.getFilterValue() as string) ?? ""}
+              onChange={(event) =>
+                table.getColumn("projectName")?.setFilterValue(event.target.value)
+              }
+              className="max-w-sm"
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="ml-auto">
+                  Columns <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {table
+                  .getAllColumns()
+                  .filter((column) => column.getCanHide())
+                  .map((column) => {
+                    return (
+                      <DropdownMenuCheckboxItem
+                        key={column.id}
+                        className="capitalize"
+                        checked={column.getIsVisible()}
+                        onCheckedChange={(value) =>
+                          column.toggleVisibility(!!value)
+                        }
+                      >
+                        {column.id.replace('financials.', 'Financials: ')}
+                      </DropdownMenuCheckboxItem>
+                    )
+                  })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
           <div className="rounded-md border">
             <Table>
               <TableHeader>
@@ -247,13 +275,56 @@ export function ProjectsPage() {
               </TableBody>
             </Table>
           </div>
-          <div className="flex items-center justify-end space-x-2 py-4">
-            <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
-              Previous
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
-              Next
-            </Button>
+          <div className="flex items-center justify-between px-2 py-4">
+            <div className="flex-1 text-sm text-muted-foreground">
+              {table.getFilteredRowModel().rows.length} row(s) total.
+            </div>
+            <div className="flex items-center space-x-6 lg:space-x-8">
+              <div className="flex items-center space-x-2">
+                <p className="text-sm font-medium">Rows per page</p>
+                <Select
+                  value={`${table.getState().pagination.pageSize}`}
+                  onValueChange={(value) => {
+                    table.setPageSize(Number(value))
+                  }}
+                >
+                  <SelectTrigger className="h-8 w-[70px]">
+                    <SelectValue placeholder={table.getState().pagination.pageSize} />
+                  </SelectTrigger>
+                  <SelectContent side="top">
+                    {[5, 10, 20, 50].map((pageSize) => (
+                      <SelectItem key={pageSize} value={`${pageSize}`}>
+                        {pageSize}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                Page {table.getState().pagination.pageIndex + 1} of{" "}
+                {table.getPageCount() || 1}
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  className="h-8 w-8 p-0"
+                  onClick={() => table.previousPage()}
+                  disabled={!table.getCanPreviousPage()}
+                >
+                  <span className="sr-only">Go to previous page</span>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-8 w-8 p-0"
+                  onClick={() => table.nextPage()}
+                  disabled={!table.getCanNextPage()}
+                >
+                  <span className="sr-only">Go to next page</span>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

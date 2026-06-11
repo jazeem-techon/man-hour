@@ -51,7 +51,7 @@ export function ReportByProjectPage() {
     if (!project) return;
     
     const exportData = employeeBreakdown.map(eb => ({
-      Project: project.name,
+      Project: project?.name || 'Unnamed Project',
       Employee: eb.employeeName,
       Department: eb.department,
       'Total Hours': eb.hours,
@@ -59,7 +59,7 @@ export function ReportByProjectPage() {
       'Last Date': eb.lastDate
     }));
 
-    exportToExcel(exportData, `Project_Report_${project.name.replace(/\s+/g, '_')}`);
+    exportToExcel(exportData, `Project_Report_${(project?.name || 'Unnamed').replace(/\s+/g, '_')}`);
   };
 
   return (
@@ -78,7 +78,7 @@ export function ReportByProjectPage() {
               </SelectTrigger>
               <SelectContent>
                 {projects.map(p => (
-                  <SelectItem key={p._id} value={p._id}>{p.name}</SelectItem>
+                  <SelectItem key={p._id} value={p._id}>{p.name || 'Unnamed Project'}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
