@@ -46,61 +46,61 @@ export function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight text-blue-900">Dashboard</h2>
+        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
         <p className="text-muted-foreground">Overview of your man-hour tracking operations.</p>
       </div>
-      
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-gradient-to-br from-blue-600 to-blue-800 text-white border-none shadow-md">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-100">Total Hours Logged</CardTitle>
-            <Clock className="h-5 w-5 text-blue-200" />
+            <CardTitle className="text-sm font-medium">Total Hours Logged</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{totalHours}</div>
+            <div className="text-2xl font-bold">{totalHours}</div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-blue-600 to-blue-800 text-white border-none shadow-md">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-100">Active Employees</CardTitle>
-            <Users className="h-5 w-5 text-blue-200" />
+            <CardTitle className="text-sm font-medium">Active Employees</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{activeEmployees.length}</div>
+            <div className="text-2xl font-bold">{activeEmployees.length}</div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-blue-600 to-blue-800 text-white border-none shadow-md">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-100">Active Projects</CardTitle>
-            <Briefcase className="h-5 w-5 text-blue-200" />
+            <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
+            <Briefcase className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{activeProjects.length}</div>
+            <div className="text-2xl font-bold">{activeProjects.length}</div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-blue-600 to-blue-800 text-white border-none shadow-md">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-100">Employees on Leave</CardTitle>
-            <Calendar className="h-5 w-5 text-blue-200" />
+            <CardTitle className="text-sm font-medium">Employees on Leave</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{employeesOnLeave.length}</div>
+            <div className="text-2xl font-bold">{employeesOnLeave.length}</div>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4 border-blue-100 shadow-sm">
+        <Card className="col-span-4">
           <CardHeader>
-            <CardTitle className="text-blue-900">Monthly Hours per Project</CardTitle>
+            <CardTitle>Monthly Hours per Project</CardTitle>
           </CardHeader>
           <CardContent className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748B'}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748B'}} />
-                <Tooltip cursor={{fill: '#F1F5F9'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748B' }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748B' }} />
+                <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
                 <Legend />
                 <Bar dataKey="Abu Dhabi Metro" stackId="a" fill="#1E3A8A" radius={[0, 0, 4, 4]} />
                 <Bar dataKey="ADNOC Digital" stackId="a" fill="#2563EB" />
@@ -110,9 +110,9 @@ export function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="col-span-3 border-blue-100 shadow-sm">
+        <Card className="col-span-3">
           <CardHeader>
-            <CardTitle className="text-blue-900">Top Employees</CardTitle>
+            <CardTitle>Top Employees</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
@@ -128,10 +128,10 @@ export function DashboardPage() {
                   <TableRow key={e._id}>
                     <TableCell className="font-medium">
                       {e.name}
-                      {e.isOnLeave && <Badge variant="outline" className="ml-2 text-yellow-600 border-yellow-600 bg-yellow-50">Leave</Badge>}
+                      {e.isOnLeave && <Badge variant="outline" className="ml-2">Leave</Badge>}
                     </TableCell>
                     <TableCell className="text-muted-foreground">{e.department}</TableCell>
-                    <TableCell className="text-right font-semibold text-blue-900">{e.totalHours}h</TableCell>
+                    <TableCell className="text-right font-semibold">{e.totalHours}h</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -140,9 +140,9 @@ export function DashboardPage() {
         </Card>
       </div>
 
-      <Card className="border-blue-100 shadow-sm">
+      <Card>
         <CardHeader>
-          <CardTitle className="text-blue-900">Active Projects</CardTitle>
+          <CardTitle>Active Projects</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
@@ -160,10 +160,10 @@ export function DashboardPage() {
                 <TableRow key={p._id}>
                   <TableCell className="font-medium">{p.name}</TableCell>
                   <TableCell className="text-muted-foreground">{p.salespersonName}</TableCell>
-                  <TableCell className="text-right font-semibold text-blue-900">{p.totalHours}h</TableCell>
+                  <TableCell className="text-right font-semibold">{p.totalHours}h</TableCell>
                   <TableCell className="text-right">{p.employeeCount}</TableCell>
                   <TableCell>
-                    <Badge variant="default" className="bg-blue-100 text-blue-800 hover:bg-blue-200 border-none">Active</Badge>
+                    <Badge variant="default">Active</Badge>
                   </TableCell>
                 </TableRow>
               ))}
