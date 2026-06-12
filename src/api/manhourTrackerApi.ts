@@ -6,6 +6,28 @@ export const fetchDashboardSummary = async (params?: any) => {
   return response.data;
 };
 
+// Admin dashboard with period filtering
+export const fetchAdminDashboard = async (params?: {
+  period?: string;
+  year?: number;
+  quarter?: number;
+  month?: number;
+}) => {
+  const response = await api.get('/manhour-tracker/dashboard-summary', { params });
+  return response.data;
+};
+
+// Salesperson dashboard — their own targets + project data
+export const fetchSalespersonDashboard = async (params?: {
+  period?: string;
+  year?: number;
+  quarter?: number;
+  month?: number;
+}) => {
+  const response = await api.get('/manhour-tracker/salesperson/dashboard', { params });
+  return response.data;
+};
+
 // ─── Salespeople & Targets ───────────────────────────────────────
 export const fetchSalespeopleWithTargets = async (params?: any) => {
   const response = await api.get('/manhour-tracker/salespeople', { params });

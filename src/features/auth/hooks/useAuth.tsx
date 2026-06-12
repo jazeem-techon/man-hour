@@ -76,8 +76,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const isAdmin = ['CompanyAdmin', 'Admin', 'admin', 'company_admin'].includes(user?.role || '');
-  const isSalesperson = ['Salesperson', 'salesperson'].includes(user?.role || '');
+  const isAdmin = ['CompanyAdmin', 'Admin', 'admin', 'company_admin', 'companyadmin'].includes(user?.role || '')
+    || user?.permissions?.[0]?.fullAdminAccess === true;
+  const isSalesperson = !!user?.salesPersonId;
 
   return (
     <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!token, isLoading, isAdmin, isSalesperson }}>
