@@ -2,11 +2,10 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  Clock, Users, Briefcase, Banknote, Activity, Percent,
-  TrendingUp, Target, Loader2, Calendar
+  Clock, Users, Briefcase, Banknote,
+  TrendingUp, Target, Loader2, Calendar, LayoutDashboard
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -130,33 +129,34 @@ function TargetPieChart({ label, progressData, icon: Icon }: {
 
   const { target, actual, percentage, remaining, isAchieved } = progressData;
   const isNegative = actual < 0;
-  
+
   const safePercentage = isNaN(percentage) || !isFinite(percentage) ? 0 : percentage;
   const achievedPct = isNegative ? 0 : Math.min(Math.max(safePercentage, 0), 100);
   const pendingPct = Math.max(100 - achievedPct, 0);
-  
+
   const isEmpty = achievedPct === 0 && pendingPct === 0;
 
-  const data = isEmpty 
+  const data = isEmpty
     ? [{ name: 'No Data', value: 100, fill: '#f1f5f9' }] // Slate-100 for empty state
     : [
-        { name: 'Target Achieved', value: achievedPct, fill: '#5cb85c' },
-        { name: 'Target Pending', value: pendingPct, fill: '#1d78c1' }
-      ];
+      { name: 'Target Achieved', value: achievedPct, fill: '#5cb85c' },
+      { name: 'Target Pending', value: pendingPct, fill: '#1d78c1' }
+    ];
 
   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }: any) => {
     if (percent < 0.08 || isEmpty) return null;
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+    const isFull = percent === 1;
+    const radius = isFull ? 0 : innerRadius + (outerRadius - innerRadius) * 0.5;
     const x = cx + radius * Math.cos(-midAngle * Math.PI / 180);
     const y = cy + radius * Math.sin(-midAngle * Math.PI / 180);
-    
+
     return (
-      <text 
-        x={x} 
-        y={y} 
-        fill="white" 
-        textAnchor="middle" 
-        dominantBaseline="central" 
+      <text
+        x={x}
+        y={y}
+        fill="white"
+        textAnchor="middle"
+        dominantBaseline="central"
         style={{ textShadow: '0px 2px 5px rgba(0,0,0,0.5)' }}
       >
         <tspan x={x} dy="-0.2em" fontSize="28" fontWeight="800" fontFamily="system-ui, sans-serif">{`${(percent * 100).toFixed(0)}%`}</tspan>
@@ -210,10 +210,10 @@ function TargetPieChart({ label, progressData, icon: Icon }: {
                 contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
               />
             )}
-            <Legend 
-              verticalAlign="bottom" 
-              height={40} 
-              iconType="circle" 
+            <Legend
+              verticalAlign="bottom"
+              height={40}
+              iconType="circle"
               wrapperStyle={{ fontSize: '14px', fontWeight: '500', paddingTop: '10px' }}
               formatter={(value, entry: any) => {
                 if (value === 'No Data') return <span className="text-slate-400 ml-1">No Data Available</span>;
@@ -307,7 +307,7 @@ function AdminDashboard({ data }: { data: any }) {
                       tickFormatter={(v) => formatCurrency(v)}
                     />
                     <Tooltip
-                      formatter={(value: any, name: string) => [formatCurrency(value), name]}
+                      formatter={(value: any, name: any) => [formatCurrency(value), name]}
                       cursor={{ fill: '#f1f5f9' }}
                       contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                     />
@@ -438,9 +438,27 @@ function SalespersonDashboard({ data }: { data: any }) {
   const fmt = (v: number) => (v || 0).toLocaleString();
 
   const hasTargets = !!monthlyTarget || !!quarterlyTarget;
-  
-  // Calculate an overall achievement percentage for the summary card (if available)
-  const targetAchievementPct = monthlyTarget?.percentage || 0;
+
+  // Calculate an overall achievement percentage for the summary card
+  const targetAchievementPct = Math.max(monthlyTarget?.percentage || 0, quarterlyTarget?.percentage || 0);
+
+  let activeMetricTitle = "Gross Profit";
+  let activeMetricValue = actuals.grossProfit || 0;
+  let activeTargetAmount = 0;
+
+  if (target.revenueTarget > 0) {
+    activeMetricTitle = "Actual Revenue";
+    activeMetricValue = actuals.revenue || 0;
+    activeTargetAmount = target.revenueTarget;
+  } else if (target.netProfitTarget > 0) {
+    activeMetricTitle = "Net Profit";
+    activeMetricValue = actuals.netProfit || 0;
+    activeTargetAmount = target.netProfitTarget;
+  } else if (target.gpTarget > 0) {
+    activeMetricTitle = "Gross Profit";
+    activeMetricValue = actuals.grossProfit || 0;
+    activeTargetAmount = target.gpTarget;
+  }
 
   return (
     <>
@@ -457,16 +475,24 @@ function SalespersonDashboard({ data }: { data: any }) {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mt-6 mb-6">
         <StatCard
+          title={activeMetricTitle}
+          value={`${fmt(activeMetricValue)} / ${fmt(activeTargetAmount)}`}
+          subtitle="Monthly Target"
+          icon={Target}
+          gradient="bg-gradient-to-br from-indigo-600 to-indigo-800"
+        />
+        <StatCard
+          title={activeMetricTitle}
+          value={`${fmt(quarterlyTarget?.actual || 0)} / ${fmt(quarterlyTarget?.target || 0)}`}
+          subtitle="Quarterly Target"
+          icon={TrendingUp}
+          gradient="bg-gradient-to-br from-violet-600 to-violet-800"
+        />
+        <StatCard
           title="Total Projects"
           value={fmt(projectsCount)}
           icon={Briefcase}
           gradient="bg-gradient-to-br from-blue-600 to-blue-800"
-        />
-        <StatCard
-          title="Gross Profit"
-          value={formatCurrency(actuals.grossProfit || 0)}
-          icon={Activity}
-          gradient={`bg-gradient-to-br ${(actuals.grossProfit || 0) < 0 ? 'from-red-600 to-red-800' : 'from-violet-600 to-violet-800'}`}
         />
         <StatCard
           title="Target Achievement"
@@ -479,12 +505,6 @@ function SalespersonDashboard({ data }: { data: any }) {
           value={formatCurrency(monthlyTarget?.actual || 0)}
           icon={Banknote}
           gradient="bg-gradient-to-br from-amber-600 to-amber-800"
-        />
-        <StatCard
-          title="Quarterly Achieved"
-          value={formatCurrency(quarterlyTarget?.actual || 0)}
-          icon={TrendingUp}
-          gradient="bg-gradient-to-br from-indigo-600 to-indigo-800"
         />
       </div>
 
@@ -547,7 +567,7 @@ function SalespersonDashboard({ data }: { data: any }) {
                       tickFormatter={(v) => formatCurrency(v)}
                     />
                     <Tooltip
-                      formatter={(value: any, name: string) => [formatCurrency(value), name]}
+                      formatter={(value: any, name: any) => [formatCurrency(value), name]}
                       cursor={{ fill: '#f1f5f9' }}
                       contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                     />
@@ -620,7 +640,7 @@ function SalespersonDashboard({ data }: { data: any }) {
 
 // ─── Main Dashboard Page ────────────────────────────────────────
 export function DashboardPage() {
-  const { isAdmin, isSalesperson, user } = useAuth();
+  const { isAdmin, isSalesperson } = useAuth();
 
   const now = new Date();
   const [period, setPeriod] = useState('monthly');
@@ -630,11 +650,13 @@ export function DashboardPage() {
 
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasNoTargets, setHasNoTargets] = useState(false);
 
   useEffect(() => {
     const loadDashboard = async () => {
       try {
         setIsLoading(true);
+        setHasNoTargets(false);
         const params: any = { period, year };
         if (period === 'quarterly') params.quarter = quarter;
         if (period === 'monthly') params.month = month;
@@ -648,9 +670,13 @@ export function DashboardPage() {
 
         // Handle both { data: { ... } } and direct { ... } shapes
         setDashboardData(res?.data || res);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to load dashboard:', error);
-        toast.error('Failed to load dashboard data');
+        if (isSalesperson && error?.response?.status === 404) {
+          setHasNoTargets(true);
+        } else {
+          toast.error('Failed to load dashboard data');
+        }
         setDashboardData(null);
       } finally {
         setIsLoading(false);
@@ -682,32 +708,33 @@ export function DashboardPage() {
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-blue-900">Dashboard</h2>
           <p className="text-muted-foreground">
-            {isSalesperson ? (
-              'Your performance overview'
-            ) : (
-              <>
-                Company-wide operations overview {' — '}
-                <span className="font-medium text-slate-700">{periodLabel}</span>
-              </>
-            )}
+            {isSalesperson ? 'Your performance overview' : 'Company-wide operations overview'}
+            {' — '}
+            <span className="font-medium text-slate-700">{periodLabel}</span>
           </p>
         </div>
-        {!isSalesperson && (
-          <PeriodFilter
-            period={period}
-            year={year}
-            quarter={quarter}
-            month={month}
-            onPeriodChange={setPeriod}
-            onYearChange={setYear}
-            onQuarterChange={setQuarter}
-            onMonthChange={setMonth}
-          />
-        )}
+        <PeriodFilter
+          period={period}
+          year={year}
+          quarter={quarter}
+          month={month}
+          onPeriodChange={setPeriod}
+          onYearChange={setYear}
+          onQuarterChange={setQuarter}
+          onMonthChange={setMonth}
+        />
       </div>
 
       {/* Role-based content */}
-      {isSalesperson ? (
+      {hasNoTargets ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center border rounded-lg bg-slate-50 border-slate-200 shadow-sm">
+          <div className="w-16 h-16 bg-blue-100 text-blue-600 flex items-center justify-center rounded-full mb-4">
+            <LayoutDashboard className="w-8 h-8 opacity-80" />
+          </div>
+          <h3 className="text-xl font-semibold text-slate-800 mb-2">No Targets Assigned</h3>
+          <p className="text-slate-500 max-w-md">No targets assigned to you for this period. Please contact your company admin to set a target.</p>
+        </div>
+      ) : isSalesperson ? (
         <SalespersonDashboard data={dashboardData} />
       ) : (
         <AdminDashboard data={dashboardData} />

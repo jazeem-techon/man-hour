@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, ArrowLeft, Banknote, Activity, Percent, Briefcase, FileText, Users } from 'lucide-react';
+import { Loader2, ArrowLeft, Banknote, Activity, Briefcase, Users } from 'lucide-react';
 import { fetchProjectDetails } from '@/api/manhourTrackerApi';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils';
@@ -104,6 +104,9 @@ export function ProjectDetailsPage() {
   const hasDailyData = dailyBreakdown.some((d: any) => (d[chartMetric] || 0) > 0);
   const hasTaskData = enrichedTaskBreakdown.some((t: any) => (t[chartMetric] || 0) > 0);
 
+  const calculatedManHourCost = employeeBreakdown.reduce((sum: number, emp: any) => sum + (emp.cost || 0), 0);
+  const calculatedNetProfit = (financials?.grossProfit || 0) - calculatedManHourCost;
+
   // Formatting helpers
   const formatNumber = (val: number) => (val || 0).toLocaleString();
 
@@ -181,23 +184,25 @@ export function ProjectDetailsPage() {
 
         <Card className="shadow-sm border-indigo-100 bg-indigo-50/30">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Profit Margin</CardTitle>
-            <Percent className="h-4 w-4 text-indigo-600" />
+            <CardTitle className="text-sm font-medium">Total Man Hour Cost</CardTitle>
+            <Banknote className="h-4 w-4 text-indigo-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-indigo-700">
-              {(financials?.margin || 0).toFixed(1)}%
+            <div className="text-2xl font-bold text-slate-800">
+              {formatCurrency(financials?.manHourCost || financials?.manhourCost || calculatedManHourCost)}
             </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm border-slate-100">
+        <Card className="shadow-sm border-violet-100 bg-violet-50/30">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Hours</CardTitle>
-            <FileText className="h-4 w-4 text-slate-600" />
+            <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
+            <Activity className="h-4 w-4 text-violet-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-800">{formatNumber(financials?.loggedHours)}h</div>
+            <div className={`text-2xl font-bold ${((financials?.netProfit ?? calculatedNetProfit) < 0) ? 'text-red-600' : 'text-violet-600'}`}>
+              {formatCurrency(financials?.netProfit ?? calculatedNetProfit)}
+            </div>
           </CardContent>
         </Card>
       </div>
