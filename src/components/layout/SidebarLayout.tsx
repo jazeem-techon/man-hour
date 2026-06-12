@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router';
-import { LayoutDashboard, Clock, Briefcase, UserCircle, Calendar as CalendarIcon, FileText, Menu } from 'lucide-react';
+import { LayoutDashboard, Clock, Briefcase, UserCircle, Calendar as CalendarIcon, FileText, Menu, LogOut } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -19,9 +19,8 @@ const navItems: NavItem[] = [
   { to: '/manhours', label: 'Log Hours', icon: Clock, adminOnly: true },
   { to: '/projects', label: 'Projects', icon: Briefcase },
   { to: '/salespersons', label: 'Salespersons', icon: UserCircle, adminOnly: true },
-  { to: '/leaves', label: 'Leaves', icon: CalendarIcon },
+  { to: '/leaves', label: 'Leaves', icon: CalendarIcon, adminOnly: true },
   { to: '/reports/by-employee', label: 'Report: By Employee', icon: FileText, adminOnly: true },
-  { to: '/reports/by-project', label: 'Report: By Project', icon: FileText },
 ];
 
 const NavLinks = ({ onClick }: { onClick?: () => void }) => {
@@ -58,6 +57,7 @@ const NavLinks = ({ onClick }: { onClick?: () => void }) => {
 
 export function SidebarLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { logout } = useAuth();
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
@@ -71,6 +71,15 @@ export function SidebarLayout() {
         </div>
         <div className="flex-1 overflow-y-auto py-4 px-3">
           <NavLinks />
+        </div>
+        <div className="border-t border-blue-800 p-4">
+          <button
+            onClick={logout}
+            className="flex w-full items-center px-4 py-3 text-sm font-medium rounded-md text-blue-100 hover:bg-blue-800 hover:text-white transition-colors"
+          >
+            <LogOut className="mr-3 h-5 w-5" />
+            Logout
+          </button>
         </div>
       </aside>
 
@@ -89,15 +98,27 @@ export function SidebarLayout() {
                 <span className="sr-only">Open Menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-64 p-0 bg-blue-900 border-none text-blue-100">
+            <SheetContent side="left" className="w-64 p-0 flex flex-col bg-blue-900 border-none text-blue-100">
               <div className="flex h-16 items-center border-b border-blue-800 px-6">
                 <h1 className="text-xl font-bold text-white flex items-center">
                   <Clock className="mr-2 h-6 w-6 text-blue-300" />
                   Menu
                 </h1>
               </div>
-              <div className="py-4 px-3">
+              <div className="flex-1 overflow-y-auto py-4 px-3">
                 <NavLinks onClick={() => setMobileOpen(false)} />
+              </div>
+              <div className="border-t border-blue-800 p-4 mt-auto">
+                <button
+                  onClick={() => {
+                    setMobileOpen(false);
+                    logout();
+                  }}
+                  className="flex w-full items-center px-4 py-3 text-sm font-medium rounded-md text-blue-100 hover:bg-blue-800 hover:text-white transition-colors"
+                >
+                  <LogOut className="mr-3 h-5 w-5" />
+                  Logout
+                </button>
               </div>
             </SheetContent>
           </Sheet>
