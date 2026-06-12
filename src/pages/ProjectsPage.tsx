@@ -6,13 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils';
-import { 
-  useReactTable, 
-  getCoreRowModel, 
-  getPaginationRowModel, 
+import {
+  useReactTable,
+  getCoreRowModel,
+  getPaginationRowModel,
   getSortedRowModel,
   getFilteredRowModel,
-  flexRender, 
+  flexRender,
   SortingState,
   ColumnFiltersState,
   VisibilityState,
@@ -22,8 +22,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ArrowUpDown, Loader2, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { 
-  fetchManhourProjects 
+import {
+  fetchManhourProjects
 } from '@/api/manhourTrackerApi';
 
 
@@ -34,7 +34,7 @@ export function ProjectsPage() {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [data, setData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+
 
   const loadData = async () => {
     try {
@@ -68,11 +68,16 @@ export function ProjectsPage() {
       }
     },
     {
-      accessorKey: 'projectId',
-      header: 'ID',
+      accessorKey: 'projectName',
+      header: ({ column }) => (
+        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          Job Id <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+
+      ),
       cell: ({ row }) => {
         const pId = row.original?._id;
-        const displayId = row.getValue('projectId') as string;
+        const displayId = row.getValue('projectName') as string;
         return (
           <Link to={`/projects/${pId}`} className="text-blue-600 hover:underline font-medium">
             {displayId}
@@ -88,14 +93,7 @@ export function ProjectsPage() {
         return <div>{cust?.name || '-'}</div>;
       }
     },
-    {
-      accessorKey: 'projectName',
-      header: ({ column }) => (
-        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Project Name <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      ),
-    },
+
     {
       accessorKey: 'salespersonName',
       header: ({ column }) => (
@@ -104,24 +102,11 @@ export function ProjectsPage() {
         </Button>
       ),
       cell: ({ row }) => {
-        const spName = row.getValue('salespersonName') || 
-                       row.original?.salesperson?.name || 
-                       row.original?.salesPersonId?.name || 
-                       row.original?.salesperson;
+        const spName = row.getValue('salespersonName') ||
+          row.original?.salesperson?.name ||
+          row.original?.salesPersonId?.name ||
+          row.original?.salesperson;
         return <div>{spName as string || 'Not Assigned'}</div>;
-      }
-    },
-    {
-      accessorKey: 'status',
-      header: 'Status',
-      cell: ({ row }) => {
-        const status = row.getValue('status') as string;
-        const isActive = status === 'In progress' || status === 'Active';
-        return (
-          <Badge variant={isActive ? "default" : "secondary"} className={isActive ? "bg-blue-100 text-blue-800 hover:bg-blue-200 border-none" : ""}>
-            {status || 'Unknown'}
-          </Badge>
-        );
       }
     },
     {
@@ -140,7 +125,7 @@ export function ProjectsPage() {
       accessorKey: 'financials.totalCost',
       header: ({ column }) => (
         <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Total Cost <ArrowUpDown className="ml-2 h-4 w-4" />
+         Purchase Cost <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
       cell: ({ row }) => {
@@ -151,15 +136,28 @@ export function ProjectsPage() {
     {
       accessorKey: 'financials.loggedHours',
       header: ({ column }) => (
-        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Total Hours <ArrowUpDown className="ml-2 h-4 w-4" />
+        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          Total Man Hours <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
       cell: ({ row }) => {
         const hrs = row.original?.financials?.loggedHours as number;
         return <div className="text-right font-medium">{hrs || 0}h</div>;
       }
-    }
+    },
+   {
+      accessorKey: 'status',
+      header: 'Status',
+      cell: ({ row }) => {
+        const status = row.getValue('status') as string;
+        const isActive = status === 'In progress' || status === 'Active';
+        return (
+          <Badge variant={isActive ? "default" : "secondary"} className={isActive ? "bg-blue-100 text-blue-800 hover:bg-blue-200 border-none" : ""}>
+            {status || 'Unknown'}
+          </Badge>
+        );
+      }
+    },
   ], []);
 
   const table = useReactTable({
@@ -172,7 +170,7 @@ export function ProjectsPage() {
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
-    state: { 
+    state: {
       sorting,
       columnFilters,
       columnVisibility,
