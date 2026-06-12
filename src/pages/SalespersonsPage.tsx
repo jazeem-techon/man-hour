@@ -227,18 +227,6 @@ export function SalespersonsPage() {
         const gp = row.original?.actuals?.grossProfit as number;
         return <div className={`text-right font-medium ${gp < 0 ? 'text-red-600' : 'text-green-700'}`}>{gp ? formatCurrency(gp) : '-'}</div>;
       }
-    },
-    {
-      accessorKey: 'actuals.margin',
-      header: ({ column }) => (
-        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Margin % <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const margin = row.original?.actuals?.margin as number;
-        return <div className="text-right font-medium">{margin ? `${margin.toFixed(2)}%` : '-'}</div>;
-      }
     }
   ], []);
 
