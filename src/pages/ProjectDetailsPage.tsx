@@ -146,12 +146,12 @@ export function ProjectDetailsPage() {
             <Banknote className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-800">{formatCurrency(financials?.revenue)}</div>
-            {project.revenueBudget > 0 && (
+            <div className="text-2xl font-bold text-slate-800">{formatCurrency(project.revenueBudget || 0)}</div>
+            {/* {project.revenueBudget > 0 && (
               <p className="text-xs text-muted-foreground mt-1 font-medium">
                 Budget: {formatCurrency(project.revenueBudget)}
               </p>
-            )}
+            )} */}
           </CardContent>
         </Card>
 
@@ -161,12 +161,12 @@ export function ProjectDetailsPage() {
             <Banknote className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-800">{formatCurrency(financials?.totalCost)}</div>
-            {project.costBudget > 0 && (
+            <div className="text-2xl font-bold text-slate-800">{formatCurrency(project.costBudget || 0)}</div>
+            {/* {project.costBudget > 0 && (
               <p className="text-xs text-muted-foreground mt-1 font-medium">
                 Budget: {formatCurrency(project.costBudget)}
               </p>
-            )}
+            )} */}
           </CardContent>
         </Card>
         
@@ -176,8 +176,8 @@ export function ProjectDetailsPage() {
             <Activity className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${(financials?.grossProfit || 0) < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-              {formatCurrency(financials?.grossProfit)}
+            <div className={`text-2xl font-bold text-black`}>
+              {formatCurrency(project.revenueBudget && project.costBudget ? (project.revenueBudget - project.costBudget) : (financials?.grossProfit || 0))}
             </div>
           </CardContent>
         </Card>
@@ -200,8 +200,8 @@ export function ProjectDetailsPage() {
             <Activity className="h-4 w-4 text-violet-600" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${((financials?.netProfit ?? calculatedNetProfit) < 0) ? 'text-red-600' : 'text-violet-600'}`}>
-              {formatCurrency(financials?.netProfit ?? calculatedNetProfit)}
+            <div className={`text-2xl font-bold ${((project.revenueBudget || 0) - (project.costBudget || 0) - (calculatedManHourCost || 0)) < 0 ? 'text-red-600' : 'text-green-600'}`}>
+              {formatCurrency(project.revenueBudget && project.costBudget ? ((project.revenueBudget - project.costBudget) - calculatedManHourCost) : (financials?.netProfit ?? calculatedNetProfit))}
             </div>
           </CardContent>
         </Card>

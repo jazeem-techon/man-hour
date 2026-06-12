@@ -34,6 +34,10 @@ export function ProjectsPage() {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [data, setData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  });
 
 
   const loadData = async () => {
@@ -53,6 +57,31 @@ export function ProjectsPage() {
     loadData();
   }, []);
 
+const monthOptions = useMemo(() => {
+  const year = new Date().getFullYear();
+
+  return Array.from({ length: 12 }, (_, month) => ({
+    value: `${year}-${String(month + 1).padStart(2, "0")}`,
+    label: new Date(year, month, 1).toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    }),
+  }));
+}, []);
+
+  const filteredData = useMemo(() => {
+    if (!selectedMonth) return data;
+
+    const [year, month] = selectedMonth.split('-').map(Number);
+
+    return data.filter((item) => {
+      const createdAt = item?.createdAt ? new Date(item.createdAt) : null;
+
+      return !!createdAt && !Number.isNaN(createdAt.getTime())
+        && createdAt.getFullYear() === year
+        && createdAt.getMonth() === month - 1;
+    });
+  }, [data, selectedMonth]);
 
   const columns = useMemo<ColumnDef<any>[]>(() => [
     {
@@ -161,7 +190,7 @@ export function ProjectsPage() {
   ], []);
 
   const table = useReactTable({
-    data,
+    data: filteredData,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -201,15 +230,31 @@ export function ProjectsPage() {
           <CardTitle className="text-blue-900">Projects Directory</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center py-4 justify-between px-2">
-            <Input
-              placeholder="Filter projects..."
-              value={(table.getColumn("projectName")?.getFilterValue() as string) ?? ""}
-              onChange={(event) =>
-                table.getColumn("projectName")?.setFilterValue(event.target.value)
-              }
-              className="max-w-sm"
-            />
+          <div className="flex items-center py-4 justify-between px-2 gap-3 flex-nowrap">
+            <div className="flex items-center gap-3 flex-nowrap">
+              <Input
+                placeholder="Filter projects..."
+                value={(table.getColumn("projectName")?.getFilterValue() as string) ?? ""}
+                onChange={(event) =>
+                  table.getColumn("projectName")?.setFilterValue(event.target.value)
+                }
+                className="max-w-sm"
+              />
+              <div className="w-[220px]">
+                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select month" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {monthOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="ml-auto">
