@@ -350,16 +350,28 @@ export function LeavesPage() {
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <div key={row.id} className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col gap-2">
-                  {row.getVisibleCells().map((cell) => (
-                    <div key={cell.id} className="flex justify-between items-center text-sm">
-                      <span className="font-medium text-slate-500 mr-2">
-                        {flexRender(cell.column.columnDef.header, cell.getContext())}
-                      </span>
-                      <span className="text-right">
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </span>
-                    </div>
-                  ))}
+                  {row.getVisibleCells().map((cell) => {
+                    const getHeaderLabel = (id: string) => {
+                      if (id === 'employeeName') return 'Employee';
+                      if (id === 'leaveType') return 'Leave Type';
+                      if (id === 'startDate') return 'Start Date';
+                      if (id === 'endDate') return 'End Date';
+                      if (id === 'duration') return 'Duration';
+                      if (id === 'status') return 'Status';
+                      if (id === 'note') return 'Note';
+                      return id;
+                    };
+                    return (
+                      <div key={cell.id} className="flex justify-between items-center text-sm border-b border-slate-50 last:border-0 pb-2 last:pb-0">
+                        <span className="font-semibold text-slate-600 mr-4">
+                          {getHeaderLabel(cell.column.id)}
+                        </span>
+                        <span className="text-right text-slate-800 break-words max-w-[60%]">
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </span>
+                      </div>
+                    )
+                  })}
                 </div>
               ))
             ) : (
