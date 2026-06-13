@@ -34,16 +34,25 @@ export function ProjectsPage() {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [data, setData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState(() => {
+  const [startDate, setStartDate] = useState(() => {
     const today = new Date();
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    const d = new Date(firstDay.getTime() - firstDay.getTimezoneOffset() * 60000);
+    return d.toISOString().split('T')[0];
+  });
+
+  const [endDate, setEndDate] = useState(() => {
+    const today = new Date();
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    const d = new Date(lastDay.getTime() - lastDay.getTimezoneOffset() * 60000);
+    return d.toISOString().split('T')[0];
   });
 
 
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const projectsRes = await fetchManhourProjects();
+      const projectsRes = await fetchManhourProjects({ startDate, endDate, limit: 1000 });
       setData(Array.isArray(projectsRes) ? projectsRes : (projectsRes?.data || []));
     } catch (error) {
       console.error("Failed to fetch data", error);
@@ -55,33 +64,9 @@ export function ProjectsPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [startDate, endDate]);
 
-const monthOptions = useMemo(() => {
-  const year = new Date().getFullYear();
-
-  return Array.from({ length: 12 }, (_, month) => ({
-    value: `${year}-${String(month + 1).padStart(2, "0")}`,
-    label: new Date(year, month, 1).toLocaleDateString("en-US", {
-      month: "long",
-      year: "numeric",
-    }),
-  }));
-}, []);
-
-  const filteredData = useMemo(() => {
-    if (!selectedMonth) return data;
-
-    const [year, month] = selectedMonth.split('-').map(Number);
-
-    return data.filter((item) => {
-      const createdAt = item?.createdAt ? new Date(item.createdAt) : null;
-
-      return !!createdAt && !Number.isNaN(createdAt.getTime())
-        && createdAt.getFullYear() === year
-        && createdAt.getMonth() === month - 1;
-    });
-  }, [data, selectedMonth]);
+  const filteredData = useMemo(() => data, [data]);
 
   const columns = useMemo<ColumnDef<any>[]>(() => [
     {
@@ -205,7 +190,7 @@ const monthOptions = useMemo(() => {
       columnVisibility,
     },
     initialState: {
-      pagination: { pageSize: 5 },
+      pagination: { pageSize: 10 },
     },
   });
 
@@ -230,34 +215,35 @@ const monthOptions = useMemo(() => {
           <CardTitle className="text-blue-900">Projects Directory</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center py-4 justify-between px-2 gap-3 flex-nowrap">
-            <div className="flex items-center gap-3 flex-nowrap">
+          <div className="flex flex-col sm:flex-row items-center py-4 justify-between px-2 gap-3">
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
               <Input
                 placeholder="Filter projects..."
                 value={(table.getColumn("projectName")?.getFilterValue() as string) ?? ""}
                 onChange={(event) =>
                   table.getColumn("projectName")?.setFilterValue(event.target.value)
                 }
-                className="max-w-sm"
+                className="max-w-sm w-full"
               />
-              <div className="w-[220px]">
-                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select month" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {monthOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full sm:w-[140px]"
+                />
+                <span className="text-slate-500 font-medium">to</span>
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full sm:w-[140px]"
+                />
               </div>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="ml-auto">
+                <Button variant="outline" className="w-full sm:w-auto ml-auto">
                   Columns <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -282,7 +268,40 @@ const monthOptions = useMemo(() => {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          <div className="rounded-md border">
+          <div className="md:hidden space-y-4">
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
+                <div key={row.id} className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col gap-2">
+                  {row.getVisibleCells().map((cell) => {
+                    const getHeaderLabel = (id: string) => {
+                      if (id === 'createdAt') return 'Date';
+                      if (id === 'projectName') return 'Job Id';
+                      if (id === 'customer') return 'Customer';
+                      if (id === 'salespersonName') return 'Sales Man';
+                      if (id === 'financials_revenue') return 'Revenue';
+                      if (id === 'financials_totalCost') return 'Purchase Cost';
+                      if (id === 'financials_loggedHours') return 'Total Man Hours';
+                      if (id === 'status') return 'Status';
+                      return id;
+                    };
+                    return (
+                      <div key={cell.id} className="flex justify-between items-center text-sm border-b border-slate-50 last:border-0 pb-2 last:pb-0">
+                        <span className="font-semibold text-slate-600 mr-4">
+                          {getHeaderLabel(cell.column.id)}
+                        </span>
+                        <span className="text-right text-slate-800 break-words max-w-[60%]">
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              ))
+            ) : (
+              <div className="text-center p-4 text-slate-500">No projects found.</div>
+            )}
+          </div>
+          <div className="hidden md:block rounded-md border">
             <Table>
               <TableHeader>
                 {table.getHeaderGroups().map((headerGroup) => (
@@ -318,11 +337,11 @@ const monthOptions = useMemo(() => {
               </TableBody>
             </Table>
           </div>
-          <div className="flex items-center justify-between px-2 py-4">
-            <div className="flex-1 text-sm text-muted-foreground">
+          <div className="flex flex-col sm:flex-row items-center justify-between px-2 py-4 gap-4">
+            <div className="text-sm text-muted-foreground text-center sm:text-left w-full sm:w-auto">
               {table.getFilteredRowModel().rows.length} row(s) total.
             </div>
-            <div className="flex items-center space-x-6 lg:space-x-8">
+            <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 lg:gap-8 space-x-0 sm:space-x-0 lg:space-x-0">
               <div className="flex items-center space-x-2">
                 <p className="text-sm font-medium">Rows per page</p>
                 <Select

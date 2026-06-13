@@ -7,6 +7,7 @@ import { Leave } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -166,7 +167,7 @@ export function LeavesPage() {
     onColumnFiltersChange: setColumnFilters,
     state: { sorting, columnFilters },
     initialState: {
-      pagination: { pageSize: 5 },
+      pagination: { pageSize: 10 },
     },
   });
 
@@ -204,18 +205,15 @@ export function LeavesPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Employee</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select an employee" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {employees.map(e => (
-                            <SelectItem key={e._id} value={e._id}>{e.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <SearchableSelect
+                          options={employees.map(e => ({ label: e.name, value: e._id }))}
+                          value={field.value}
+                          onChange={field.onChange}
+                          placeholder="Select an employee"
+                          searchPlaceholder="Search employees..."
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -348,7 +346,27 @@ export function LeavesPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
+          <div className="md:hidden space-y-4">
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
+                <div key={row.id} className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col gap-2">
+                  {row.getVisibleCells().map((cell) => (
+                    <div key={cell.id} className="flex justify-between items-center text-sm">
+                      <span className="font-medium text-slate-500 mr-2">
+                        {flexRender(cell.column.columnDef.header, cell.getContext())}
+                      </span>
+                      <span className="text-right">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ))
+            ) : (
+              <div className="text-center p-4 text-slate-500">No leave records found.</div>
+            )}
+          </div>
+          <div className="hidden md:block rounded-md border">
             <Table>
               <TableHeader>
                 {table.getHeaderGroups().map((headerGroup) => (

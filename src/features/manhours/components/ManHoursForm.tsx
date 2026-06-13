@@ -6,13 +6,14 @@ import { Project, Employee } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-import { CalendarIcon, AlertTriangle, Check, ChevronDown } from 'lucide-react';
+import { CalendarIcon, AlertTriangle, Check, ChevronDown, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { submitManHourLog } from '@/api/manhourTrackerApi';
@@ -53,6 +54,7 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
   const projectTasks = selectedProject?.tasks || [];
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [employeeSearch, setEmployeeSearch] = useState("");
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
@@ -110,18 +112,15 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Project</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a project" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {projects.map(p => (
-                            <SelectItem key={p._id} value={p._id}>{p.projectName || p.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <SearchableSelect
+                          options={projects.map(p => ({ label: p.projectName || p.name || 'Unknown Project', value: p._id }))}
+                          value={field.value}
+                          onChange={field.onChange}
+                          placeholder="Select a project"
+                          searchPlaceholder="Search projects..."
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -156,9 +155,20 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
                             </Button>
                           </FormControl>
                         </PopoverTrigger>
-                        <PopoverContent className="w-[300px] lg:w-[400px] p-2" align="start">
-                          <div className="max-h-[200px] overflow-y-auto space-y-1">
-                            {activeAvailableEmployees.map((e) => {
+                        <PopoverContent className="w-[300px] lg:w-[400px] p-0" align="start">
+                          <div className="flex items-center border-b px-3">
+                            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                            <input
+                              className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
+                              placeholder="Search employees..."
+                              value={employeeSearch}
+                              onChange={(e) => setEmployeeSearch(e.target.value)}
+                            />
+                          </div>
+                          <div className="max-h-[200px] overflow-y-auto space-y-1 p-2">
+                            {activeAvailableEmployees
+                              .filter((e) => e.name.toLowerCase().includes(employeeSearch.toLowerCase()))
+                              .map((e) => {
                               const isSelected = field.value?.includes(e._id);
                               return (
                                 <div
@@ -185,6 +195,9 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
                                 </div>
                               );
                             })}
+                            {activeAvailableEmployees.filter((e) => e.name.toLowerCase().includes(employeeSearch.toLowerCase())).length === 0 && (
+                              <div className="py-4 text-center text-sm text-slate-500">No employees found.</div>
+                            )}
                           </div>
                         </PopoverContent>
                       </Popover>
@@ -199,24 +212,19 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Task</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a task" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {projectTasks.map((task: any) => {
+                      <FormControl>
+                        <SearchableSelect
+                          options={projectTasks.map((task: any) => {
                             const taskLabel = task.description || task.taskName || (typeof task === 'string' ? task : 'Unknown Task');
                             const taskId = task._id || taskLabel;
-                            return (
-                              <SelectItem key={taskId} value={taskId}>
-                                {taskLabel}
-                              </SelectItem>
-                            );
+                            return { label: taskLabel, value: taskId };
                           })}
-                        </SelectContent>
-                      </Select>
+                          value={field.value}
+                          onChange={field.onChange}
+                          placeholder="Select a task"
+                          searchPlaceholder="Search tasks..."
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}

@@ -25,7 +25,7 @@ import {
 export function ProjectDetailsPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  
+
   const [projectData, setProjectData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -40,7 +40,7 @@ export function ProjectDetailsPage() {
         setIsLoading(true);
         const data = await fetchProjectDetails(projectId);
         setProjectData(data);
-        
+
         // Auto-switch to 'hours' view if labor costs are 0 but hours exist
         const actualData = data?.data || data;
         const laborCost = actualData?.financials?.laborCost || 0;
@@ -111,6 +111,7 @@ export function ProjectDetailsPage() {
   const formatNumber = (val: number) => (val || 0).toLocaleString();
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
+  console.log(financials);
 
   return (
     <div className="space-y-6">
@@ -146,12 +147,7 @@ export function ProjectDetailsPage() {
             <Banknote className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-800">{formatCurrency(project.revenueBudget || 0)}</div>
-            {/* {project.revenueBudget > 0 && (
-              <p className="text-xs text-muted-foreground mt-1 font-medium">
-                Budget: {formatCurrency(project.revenueBudget)}
-              </p>
-            )} */}
+            <div className="text-2xl font-bold text-slate-800">{formatCurrency(financials.revenue || 0)}</div>
           </CardContent>
         </Card>
 
@@ -161,15 +157,16 @@ export function ProjectDetailsPage() {
             <Banknote className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-800">{formatCurrency(project.costBudget || 0)}</div>
-            {/* {project.costBudget > 0 && (
+            <div className="text-2xl font-bold text-slate-800">{formatCurrency(financials.totalCost
+              || 0)}</div>
+            {project.costBudget > 0 && (
               <p className="text-xs text-muted-foreground mt-1 font-medium">
                 Budget: {formatCurrency(project.costBudget)}
               </p>
-            )} */}
+            )}
           </CardContent>
         </Card>
-        
+
         <Card className="shadow-sm border-emerald-100 bg-emerald-50/30">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Gross Profit</CardTitle>
@@ -177,7 +174,7 @@ export function ProjectDetailsPage() {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold text-black`}>
-              {formatCurrency(project.revenueBudget && project.costBudget ? (project.revenueBudget - project.costBudget) : (financials?.grossProfit || 0))}
+              {formatCurrency(financials?.grossProfit || 0)}
             </div>
           </CardContent>
         </Card>
@@ -209,17 +206,17 @@ export function ProjectDetailsPage() {
 
       {/* Chart Toggles */}
       <div className="flex justify-end space-x-2">
-        <Button 
-          variant={chartMetric === 'cost' ? 'default' : 'outline'} 
-          size="sm" 
+        <Button
+          variant={chartMetric === 'cost' ? 'default' : 'outline'}
+          size="sm"
           onClick={() => setChartMetric('cost')}
           className={chartMetric === 'cost' ? 'bg-blue-600' : ''}
         >
           View Costs
         </Button>
-        <Button 
-          variant={chartMetric === 'hours' ? 'default' : 'outline'} 
-          size="sm" 
+        <Button
+          variant={chartMetric === 'hours' ? 'default' : 'outline'}
+          size="sm"
           onClick={() => setChartMetric('hours')}
           className={chartMetric === 'hours' ? 'bg-blue-600' : ''}
         >
@@ -241,22 +238,22 @@ export function ProjectDetailsPage() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={dailyBreakdown} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                    <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: '#64748b'}} />
-                    <YAxis 
-                      tickFormatter={(val) => chartMetric === 'cost' ? formatCurrency(val) : `${val}h`} 
-                      axisLine={false} tickLine={false} tick={{fill: '#64748b'}} 
+                    <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} />
+                    <YAxis
+                      tickFormatter={(val) => chartMetric === 'cost' ? formatCurrency(val) : `${val}h`}
+                      axisLine={false} tickLine={false} tick={{ fill: '#64748b' }}
                     />
-                    <Tooltip 
+                    <Tooltip
                       formatter={(value: any) => chartMetric === 'cost' ? formatCurrency(value) : `${value} hrs`}
                       labelFormatter={(label) => `Date: ${label}`}
-                      cursor={{fill: '#f1f5f9'}}
+                      cursor={{ fill: '#f1f5f9' }}
                       contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                     />
-                    <Bar 
-                      dataKey={chartMetric} 
-                      fill="#3b82f6" 
-                      radius={[6, 6, 0, 0]} 
-                      maxBarSize={45} 
+                    <Bar
+                      dataKey={chartMetric}
+                      fill="#3b82f6"
+                      radius={[6, 6, 0, 0]}
+                      maxBarSize={45}
                     />
                   </BarChart>
                 </ResponsiveContainer>
@@ -300,7 +297,7 @@ export function ProjectDetailsPage() {
                 </ResponsiveContainer>
               </div>
             ) : (
-               <div className="flex items-center justify-center h-[300px] text-muted-foreground border border-dashed rounded-md bg-slate-50/50">
+              <div className="flex items-center justify-center h-[300px] text-muted-foreground border border-dashed rounded-md bg-slate-50/50">
                 {enrichedTaskBreakdown.length > 0 ? `Total ${chartMetric} is 0. Switch view to see other metrics.` : "No task data available"}
               </div>
             )}
@@ -319,26 +316,39 @@ export function ProjectDetailsPage() {
         </CardHeader>
         <CardContent>
           {employeeBreakdown.length > 0 ? (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Employee Name</TableHead>
-                    <TableHead className="text-right">Logged Hours</TableHead>
-                    <TableHead className="text-right">Labor Cost</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {employeeBreakdown.map((emp: any, idx: number) => (
-                    <TableRow key={emp.employeeId || idx}>
-                      <TableCell className="font-medium">{emp.employeeName}</TableCell>
-                      <TableCell className="text-right">{formatNumber(emp.hours)}h</TableCell>
-                      <TableCell className="text-right">{formatCurrency(emp.cost)}</TableCell>
+            <>
+              <div className="md:hidden space-y-3">
+                {employeeBreakdown.map((emp: any, idx: number) => (
+                  <div key={emp.employeeId || idx} className="bg-white p-3 rounded-lg border border-slate-100 shadow-sm flex justify-between items-center">
+                    <div className="font-medium text-slate-800">{emp.employeeName}</div>
+                    <div className="text-right">
+                      <div className="font-semibold text-blue-900">{formatNumber(emp.hours)}h</div>
+                      <div className="text-sm text-slate-500">{formatCurrency(emp.cost)}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="hidden md:block rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Employee Name</TableHead>
+                      <TableHead className="text-right">Logged Hours</TableHead>
+                      <TableHead className="text-right">Labor Cost</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {employeeBreakdown.map((emp: any, idx: number) => (
+                      <TableRow key={emp.employeeId || idx}>
+                        <TableCell className="font-medium">{emp.employeeName}</TableCell>
+                        <TableCell className="text-right">{formatNumber(emp.hours)}h</TableCell>
+                        <TableCell className="text-right">{formatCurrency(emp.cost)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           ) : (
             <div className="text-center py-8 text-muted-foreground border rounded-md">
               No employee data available for this project.

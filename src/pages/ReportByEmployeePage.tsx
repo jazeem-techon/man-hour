@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { employees, manHours, leaves, projects } from '@/data/mockData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -73,16 +74,14 @@ export function ReportByEmployeePage() {
       <Card className="border-blue-100 shadow-sm bg-blue-50/50">
         <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-center">
           <div className="flex-1 w-full flex flex-col md:flex-row gap-4">
-            <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
-              <SelectTrigger className="w-full md:w-[300px] bg-white">
-                <SelectValue placeholder="Select Employee" />
-              </SelectTrigger>
-              <SelectContent>
-                {employees.map(e => (
-                  <SelectItem key={e._id} value={e._id}>{e.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              options={employees.map(e => ({ label: e.name, value: e._id }))}
+              value={selectedEmployee}
+              onChange={setSelectedEmployee}
+              placeholder="Select Employee"
+              searchPlaceholder="Search employees..."
+              className="w-full md:w-[300px] bg-white"
+            />
 
             <Popover>
               <PopoverTrigger asChild>
@@ -166,36 +165,60 @@ export function ReportByEmployeePage() {
                 <CardTitle className="text-blue-900">Leave History</CardTitle>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Start Date</TableHead>
-                      <TableHead>End Date</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {eLeaves.length > 0 ? (
-                      eLeaves.map(l => (
-                        <TableRow key={l._id}>
-                          <TableCell>
+                <div className="md:hidden space-y-4">
+                  {eLeaves.length > 0 ? (
+                    eLeaves.map(l => (
+                      <div key={l._id} className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col gap-2">
+                        <div className="flex justify-between items-start">
+                          <div>
                             {l.leaveType === 'sick_leave' ? <Badge variant="outline" className="text-yellow-700 border-yellow-500 bg-yellow-50">Sick Leave</Badge> :
                              l.leaveType === 'no_paid' ? <Badge variant="outline" className="text-orange-700 border-orange-500 bg-orange-50">No Paid</Badge> :
                              <Badge variant="outline" className="text-blue-700 border-blue-500 bg-blue-50">Combo Off</Badge>}
-                          </TableCell>
-                          <TableCell>{l.startDate}</TableCell>
-                          <TableCell>{l.endDate}</TableCell>
-                          <TableCell className="capitalize text-muted-foreground">{l.status}</TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
+                          </div>
+                          <span className="capitalize text-sm font-medium text-muted-foreground">{l.status}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm pt-2 border-t border-slate-50 mt-1">
+                          <span className="text-slate-500">From: {l.startDate}</span>
+                          <span className="text-slate-500">To: {l.endDate}</span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">No leave history found.</div>
+                  )}
+                </div>
+                <div className="hidden md:block">
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">No leave history found.</TableCell>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Start Date</TableHead>
+                        <TableHead>End Date</TableHead>
+                        <TableHead>Status</TableHead>
                       </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {eLeaves.length > 0 ? (
+                        eLeaves.map(l => (
+                          <TableRow key={l._id}>
+                            <TableCell>
+                              {l.leaveType === 'sick_leave' ? <Badge variant="outline" className="text-yellow-700 border-yellow-500 bg-yellow-50">Sick Leave</Badge> :
+                               l.leaveType === 'no_paid' ? <Badge variant="outline" className="text-orange-700 border-orange-500 bg-orange-50">No Paid</Badge> :
+                               <Badge variant="outline" className="text-blue-700 border-blue-500 bg-blue-50">Combo Off</Badge>}
+                            </TableCell>
+                            <TableCell>{l.startDate}</TableCell>
+                            <TableCell>{l.endDate}</TableCell>
+                            <TableCell className="capitalize text-muted-foreground">{l.status}</TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">No leave history found.</TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
 
@@ -204,40 +227,66 @@ export function ReportByEmployeePage() {
                 <CardTitle className="text-blue-900">Project Breakdown</CardTitle>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Project</TableHead>
-                      <TableHead className="text-right">Total Hours</TableHead>
-                      <TableHead className="text-right">Entries</TableHead>
-                      <TableHead className="text-right">Last Date</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {projectBreakdown.length > 0 ? (
-                      <>
-                        {projectBreakdown.map(pb => (
-                          <TableRow key={pb.projectName}>
-                            <TableCell className="font-medium">{pb.projectName}</TableCell>
-                            <TableCell className="text-right">{pb.hours}h</TableCell>
-                            <TableCell className="text-right text-muted-foreground">{pb.entries}</TableCell>
-                            <TableCell className="text-right text-muted-foreground">{pb.lastDate}</TableCell>
-                          </TableRow>
-                        ))}
-                        <TableRow className="bg-blue-50 font-bold text-blue-900 hover:bg-blue-50">
-                          <TableCell>Grand Total</TableCell>
-                          <TableCell className="text-right">{totalHours}h</TableCell>
-                          <TableCell className="text-right">{eManHours.length}</TableCell>
-                          <TableCell></TableCell>
-                        </TableRow>
-                      </>
-                    ) : (
+                <div className="md:hidden space-y-4">
+                  {projectBreakdown.length > 0 ? (
+                    <>
+                      {projectBreakdown.map(pb => (
+                        <div key={pb.projectName} className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col gap-2">
+                          <div className="flex justify-between items-start">
+                            <div className="font-medium text-slate-800">{pb.projectName}</div>
+                            <div className="font-bold text-blue-700">{pb.hours}h</div>
+                          </div>
+                          <div className="flex justify-between items-center text-sm pt-2 border-t border-slate-50 mt-1">
+                            <span className="text-slate-500">Entries: {pb.entries}</span>
+                            <span className="text-slate-500">Last: {pb.lastDate}</span>
+                          </div>
+                        </div>
+                      ))}
+                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex justify-between items-center font-bold text-blue-900 mt-2">
+                        <span>Grand Total</span>
+                        <span>{totalHours}h ({eManHours.length} entries)</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">No project hours found.</div>
+                  )}
+                </div>
+                <div className="hidden md:block">
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">No project hours found.</TableCell>
+                        <TableHead>Project</TableHead>
+                        <TableHead className="text-right">Total Hours</TableHead>
+                        <TableHead className="text-right">Entries</TableHead>
+                        <TableHead className="text-right">Last Date</TableHead>
                       </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {projectBreakdown.length > 0 ? (
+                        <>
+                          {projectBreakdown.map(pb => (
+                            <TableRow key={pb.projectName}>
+                              <TableCell className="font-medium">{pb.projectName}</TableCell>
+                              <TableCell className="text-right font-semibold">{pb.hours}h</TableCell>
+                              <TableCell className="text-right text-muted-foreground">{pb.entries}</TableCell>
+                              <TableCell className="text-right text-muted-foreground">{pb.lastDate}</TableCell>
+                            </TableRow>
+                          ))}
+                          <TableRow className="bg-blue-50 font-bold text-blue-900 hover:bg-blue-50">
+                            <TableCell>Grand Total</TableCell>
+                            <TableCell className="text-right">{totalHours}h</TableCell>
+                            <TableCell className="text-right">{eManHours.length}</TableCell>
+                            <TableCell></TableCell>
+                          </TableRow>
+                        </>
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">No project hours found.</TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           </div>

@@ -24,6 +24,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowUpDown, Loader2, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { fetchSalespeopleWithTargets, saveTarget } from '@/api/manhourTrackerApi';
 import { formatCurrency } from '@/lib/utils';
 
@@ -246,7 +247,7 @@ export function SalespersonsPage() {
       columnVisibility,
     },
     initialState: {
-      pagination: { pageSize: 5 },
+      pagination: { pageSize: 10 },
     },
   });
 
@@ -280,18 +281,15 @@ export function SalespersonsPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Salesperson</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select Salesperson" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {data.map(sp => (
-                              <SelectItem key={sp._id} value={sp._id}>{sp.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <SearchableSelect
+                            options={data.map(sp => ({ label: sp.name, value: sp._id }))}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Select Salesperson"
+                            searchPlaceholder="Search salespersons..."
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -356,18 +354,18 @@ export function SalespersonsPage() {
             <CardTitle className="text-blue-900">Salesperson Directory</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center py-4 justify-between px-2">
+            <div className="flex flex-col sm:flex-row items-center py-4 justify-between px-2 gap-3">
               <Input
                 placeholder="Filter names..."
                 value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
                 onChange={(event) =>
                   table.getColumn("name")?.setFilterValue(event.target.value)
                 }
-                className="max-w-sm"
+                className="max-w-sm w-full"
               />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="ml-auto">
+                  <Button variant="outline" className="w-full sm:w-auto ml-auto">
                     Columns <ChevronDown className="ml-2 h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -392,7 +390,39 @@ export function SalespersonsPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            <div className="rounded-md border">
+            <div className="md:hidden space-y-4">
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <div key={row.id} className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col gap-3">
+                    {row.getVisibleCells().map((cell) => {
+                      const getHeaderLabel = (id: string) => {
+                        if (id === 'name') return 'Name';
+                        if (id === 'email') return 'Email';
+                        if (id === 'targetType') return 'Target Type';
+                        if (id === 'targetAmount') return 'Target Amount';
+                        if (id === 'actuals_revenue') return 'Actual Revenue';
+                        if (id === 'actuals_totalCost') return 'Total Cost';
+                        if (id === 'actuals_grossProfit') return 'Gross Profit';
+                        return id;
+                      };
+                      return (
+                        <div key={cell.id} className="flex justify-between items-center text-sm border-b border-slate-50 last:border-0 pb-2 last:pb-0">
+                          <span className="font-semibold text-slate-600 mr-4">
+                            {getHeaderLabel(cell.column.id)}
+                          </span>
+                          <span className="text-right text-slate-800 break-words max-w-[60%]">
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ))
+              ) : (
+                <div className="text-center p-4 text-slate-500">No salespersons found.</div>
+              )}
+            </div>
+            <div className="hidden md:block rounded-md border">
               <Table>
                 <TableHeader>
                   {table.getHeaderGroups().map((headerGroup) => (
@@ -428,11 +458,11 @@ export function SalespersonsPage() {
                 </TableBody>
               </Table>
             </div>
-            <div className="flex items-center justify-between px-2 py-4">
-              <div className="flex-1 text-sm text-muted-foreground">
+            <div className="flex flex-col sm:flex-row items-center justify-between px-2 py-4 gap-4">
+              <div className="text-sm text-muted-foreground text-center sm:text-left w-full sm:w-auto">
                 {table.getFilteredRowModel().rows.length} row(s) total.
               </div>
-              <div className="flex items-center space-x-6 lg:space-x-8">
+              <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 lg:gap-8 space-x-0 sm:space-x-0 lg:space-x-0">
                 <div className="flex items-center space-x-2">
                   <p className="text-sm font-medium">Rows per page</p>
                   <Select

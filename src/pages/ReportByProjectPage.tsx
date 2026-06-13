@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { employees, manHours, projects, salespersons } from '@/data/mockData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -72,16 +73,14 @@ export function ReportByProjectPage() {
       <Card className="border-blue-100 shadow-sm bg-blue-50/50">
         <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-center">
           <div className="flex-1 w-full flex flex-col md:flex-row gap-4">
-            <Select value={selectedProject} onValueChange={setSelectedProject}>
-              <SelectTrigger className="w-full md:w-[300px] bg-white">
-                <SelectValue placeholder="Select Project" />
-              </SelectTrigger>
-              <SelectContent>
-                {projects.map(p => (
-                  <SelectItem key={p._id} value={p._id}>{p.name || 'Unnamed Project'}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              options={projects.map(p => ({ label: p.name || 'Unnamed Project', value: p._id }))}
+              value={selectedProject}
+              onChange={setSelectedProject}
+              placeholder="Select Project"
+              searchPlaceholder="Search projects..."
+              className="w-full md:w-[300px] bg-white"
+            />
 
             <Popover>
               <PopoverTrigger asChild>
@@ -166,42 +165,69 @@ export function ReportByProjectPage() {
               <CardTitle className="text-blue-900">Employee Breakdown</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Employee</TableHead>
-                    <TableHead>Department</TableHead>
-                    <TableHead className="text-right">Total Hours</TableHead>
-                    <TableHead className="text-right">Entries</TableHead>
-                    <TableHead className="text-right">Last Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {employeeBreakdown.length > 0 ? (
-                    <>
-                      {employeeBreakdown.map(eb => (
-                        <TableRow key={eb.employeeName}>
-                          <TableCell className="font-medium">{eb.employeeName}</TableCell>
-                          <TableCell className="text-muted-foreground">{eb.department}</TableCell>
-                          <TableCell className="text-right">{eb.hours}h</TableCell>
-                          <TableCell className="text-right text-muted-foreground">{eb.entries}</TableCell>
-                          <TableCell className="text-right text-muted-foreground">{eb.lastDate}</TableCell>
-                        </TableRow>
-                      ))}
-                      <TableRow className="bg-blue-50 font-bold text-blue-900 hover:bg-blue-50">
-                        <TableCell colSpan={2}>Grand Total</TableCell>
-                        <TableCell className="text-right">{totalHours}h</TableCell>
-                        <TableCell className="text-right">{pManHours.length}</TableCell>
-                        <TableCell></TableCell>
-                      </TableRow>
-                    </>
-                  ) : (
+              <div className="md:hidden space-y-4">
+                {employeeBreakdown.length > 0 ? (
+                  <>
+                    {employeeBreakdown.map(eb => (
+                      <div key={eb.employeeName} className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col gap-2">
+                        <div className="flex justify-between items-start">
+                          <div className="font-medium text-slate-800">{eb.employeeName}</div>
+                          <div className="font-bold text-blue-700">{eb.hours}h</div>
+                        </div>
+                        <div className="text-sm text-muted-foreground">{eb.department}</div>
+                        <div className="flex justify-between items-center text-sm pt-2 border-t border-slate-50">
+                          <span className="text-slate-500">Entries: {eb.entries}</span>
+                          <span className="text-slate-500">Last: {eb.lastDate}</span>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex justify-between items-center font-bold text-blue-900 mt-2">
+                      <span>Grand Total</span>
+                      <span>{totalHours}h ({pManHours.length} entries)</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">No employee hours found for this project.</div>
+                )}
+              </div>
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">No employee hours found for this project.</TableCell>
+                      <TableHead>Employee</TableHead>
+                      <TableHead>Department</TableHead>
+                      <TableHead className="text-right">Total Hours</TableHead>
+                      <TableHead className="text-right">Entries</TableHead>
+                      <TableHead className="text-right">Last Date</TableHead>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {employeeBreakdown.length > 0 ? (
+                      <>
+                        {employeeBreakdown.map(eb => (
+                          <TableRow key={eb.employeeName}>
+                            <TableCell className="font-medium">{eb.employeeName}</TableCell>
+                            <TableCell className="text-muted-foreground">{eb.department}</TableCell>
+                            <TableCell className="text-right font-semibold">{eb.hours}h</TableCell>
+                            <TableCell className="text-right text-muted-foreground">{eb.entries}</TableCell>
+                            <TableCell className="text-right text-muted-foreground">{eb.lastDate}</TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="bg-blue-50 font-bold text-blue-900 hover:bg-blue-50">
+                          <TableCell colSpan={2}>Grand Total</TableCell>
+                          <TableCell className="text-right">{totalHours}h</TableCell>
+                          <TableCell className="text-right">{pManHours.length}</TableCell>
+                          <TableCell></TableCell>
+                        </TableRow>
+                      </>
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">No employee hours found for this project.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </>

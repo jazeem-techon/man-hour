@@ -39,11 +39,11 @@ function PeriodFilter({
   ];
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <div className="flex items-center gap-2">
-        <Calendar className="h-4 w-4 text-slate-500" />
+    <div className="flex flex-nowrap overflow-x-auto items-center gap-2 pb-2 -mx-2 px-2 md:mx-0 md:px-0 md:overflow-visible md:gap-3">
+      <div className="flex items-center gap-2 shrink-0">
+        <Calendar className="h-4 w-4 text-slate-500 hidden sm:block" />
         <Select value={period} onValueChange={onPeriodChange}>
-          <SelectTrigger className="w-[130px] h-9 text-sm">
+          <SelectTrigger className="w-[100px] md:w-[130px] h-9 text-sm">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -55,7 +55,7 @@ function PeriodFilter({
       </div>
 
       <Select value={String(year)} onValueChange={(v) => onYearChange(Number(v))}>
-        <SelectTrigger className="w-[100px] h-9 text-sm">
+        <SelectTrigger className="w-[80px] md:w-[100px] h-9 text-sm shrink-0">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -67,7 +67,7 @@ function PeriodFilter({
 
       {period === 'quarterly' && (
         <Select value={String(quarter)} onValueChange={(v) => onQuarterChange(Number(v))}>
-          <SelectTrigger className="w-[100px] h-9 text-sm">
+          <SelectTrigger className="w-[80px] md:w-[100px] h-9 text-sm shrink-0">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -81,7 +81,7 @@ function PeriodFilter({
 
       {period === 'monthly' && (
         <Select value={String(month)} onValueChange={(v) => onMonthChange(Number(v))}>
-          <SelectTrigger className="w-[140px] h-9 text-sm">
+          <SelectTrigger className="w-[110px] md:w-[140px] h-9 text-sm shrink-0">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -96,22 +96,37 @@ function PeriodFilter({
 }
 
 // ─── Stat Card ──────────────────────────────────────────────────
-function StatCard({ title, value, icon: Icon, gradient, subtitle }: {
+function StatCard({ title, value, icon: Icon, gradient, subtitle, trend }: {
   title: string;
   value: string;
   icon: any;
   gradient: string;
   subtitle?: string;
+  trend?: string;
 }) {
   return (
-    <Card className={`${gradient} text-white border-none shadow-lg hover:shadow-xl transition-shadow duration-300`}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-white/80">{title}</CardTitle>
-        <Icon className="h-5 w-5 text-white/60" />
+    <Card className={`relative overflow-hidden ${gradient} text-white border-none shadow-md hover:shadow-2xl hover:-translate-y-1 transition-all duration-300`}>
+      {/* Abstract background shapes for premium feel */}
+      <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 rounded-full bg-white opacity-10 blur-2xl"></div>
+      <div className="absolute bottom-0 left-0 -ml-8 -mb-8 w-24 h-24 rounded-full bg-white opacity-10 blur-xl"></div>
+
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+        <CardTitle className="text-sm font-medium text-white/90">{title}</CardTitle>
+        <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+          <Icon className="h-5 w-5 text-white" />
+        </div>
       </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-        {subtitle && <p className="text-xs text-white/70 mt-1">{subtitle}</p>}
+      <CardContent className="relative z-10">
+        <div className="text-3xl font-bold tracking-tight">{value}</div>
+        <div className="flex items-center justify-between mt-2">
+          {subtitle && <p className="text-sm text-white/80">{subtitle}</p>}
+          {trend && (
+            <span className="inline-flex items-center text-xs font-medium bg-white/20 px-2 py-0.5 rounded-full backdrop-blur-sm">
+              <TrendingUp className="h-3 w-3 mr-1" />
+              {trend}
+            </span>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -136,11 +151,23 @@ function TargetPieChart({ label, progressData, icon: Icon }: {
 
   const isEmpty = achievedPct === 0 && pendingPct === 0;
 
+  let achievedColor = '#10b981'; // emerald-500
+  if (achievedPct < 50) {
+    achievedColor = '#ef4444'; // red-500
+  } else if (achievedPct < 80) {
+    achievedColor = '#eab308'; // yellow-500 (lighter yellow)
+  }
+
+  let pendingColor = '#e2e8f0'; // slate-200 for pending
+  if (achievedPct === 0 && !isEmpty) {
+    pendingColor = '#ef4444'; // Make the whole pie red if 0% achieved
+  }
+
   const data = isEmpty
     ? [{ name: 'No Data', value: 100, fill: '#f1f5f9' }] // Slate-100 for empty state
     : [
-      { name: 'Target Achieved', value: achievedPct, fill: '#5cb85c' },
-      { name: 'Target Pending', value: pendingPct, fill: '#1d78c1' }
+      { name: 'Target Achieved', value: achievedPct, fill: achievedColor },
+      { name: 'Target Pending', value: pendingPct, fill: pendingColor }
     ];
 
   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }: any) => {
@@ -268,20 +295,22 @@ function AdminDashboard({ data }: { data: any }) {
           title="Total Projects"
           value={fmt(summary.projectsCount)}
           icon={Briefcase}
-          gradient="bg-gradient-to-br from-blue-600 to-blue-800"
+          gradient="bg-gradient-to-br from-blue-500 via-blue-600 to-blue-800"
           subtitle={`${fmt(summary.activeProjectsCount || 0)} active`}
+          trend="+12% this month"
         />
         <StatCard
           title="Total Man-Hours"
           value={`${fmt(summary.totalManHours)}h`}
           icon={Clock}
-          gradient="bg-gradient-to-br from-indigo-600 to-indigo-800"
+          gradient="bg-gradient-to-br from-indigo-500 via-indigo-600 to-indigo-800"
+          trend="+5% this month"
         />
         <StatCard
           title="Man-Hour Cost"
           value={formatCurrency(summary.totalManHourCost || 0)}
           icon={Banknote}
-          gradient="bg-gradient-to-br from-violet-600 to-violet-800"
+          gradient="bg-gradient-to-br from-violet-500 via-violet-600 to-violet-800"
         />
       </div>
 
@@ -335,24 +364,49 @@ function AdminDashboard({ data }: { data: any }) {
           </CardHeader>
           <CardContent className="pt-2">
             {topEmployees.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead>Employee</TableHead>
-                    <TableHead className="text-right">Hours</TableHead>
-                    <TableHead className="text-right">Cost</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <>
+                <div className="md:hidden space-y-3">
                   {topEmployees.slice(0, 8).map((emp: any, idx: number) => (
-                    <TableRow key={emp.employeeId || idx}>
-                      <TableCell className="font-medium">{emp.employeeName || 'Unknown'}</TableCell>
-                      <TableCell className="text-right font-semibold text-blue-900">{fmt(emp.totalHours)}h</TableCell>
-                      <TableCell className="text-right text-sm">{formatCurrency(emp.totalCost || 0)}</TableCell>
-                    </TableRow>
+                    <div key={emp.employeeId || idx} className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center hover:shadow-md transition-shadow">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 border-2 border-slate-100 rounded-full flex items-center justify-center bg-blue-50 text-blue-700 font-bold">
+                          {(emp.employeeName || 'U').substring(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="font-semibold text-slate-800">{emp.employeeName || 'Unknown'}</div>
+                          <div className="text-xs font-medium text-slate-500">{formatCurrency(emp.totalCost || 0)}</div>
+                        </div>
+                      </div>
+                      <div className="text-right font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">{fmt(emp.totalHours)}h</div>
+                    </div>
                   ))}
-                </TableBody>
-              </Table>
+                </div>
+                <div className="hidden md:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent border-b-slate-200">
+                        <TableHead className="font-semibold text-slate-600">Employee</TableHead>
+                        <TableHead className="text-right font-semibold text-slate-600">Hours</TableHead>
+                        <TableHead className="text-right font-semibold text-slate-600">Cost</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {topEmployees.slice(0, 8).map((emp: any, idx: number) => (
+                        <TableRow key={emp.employeeId || idx} className="hover:bg-slate-50/50 group transition-colors">
+                          <TableCell className="font-medium flex items-center gap-3 py-3">
+                            <div className="h-8 w-8 border border-slate-200 group-hover:border-blue-200 transition-colors rounded-full flex items-center justify-center bg-blue-50 text-blue-700 font-semibold text-xs">
+                              {(emp.employeeName || 'U').substring(0, 2).toUpperCase()}
+                            </div>
+                            <span className="text-slate-700 group-hover:text-blue-700 transition-colors">{emp.employeeName || 'Unknown'}</span>
+                          </TableCell>
+                          <TableCell className="text-right font-bold text-slate-700">{fmt(emp.totalHours)}h</TableCell>
+                          <TableCell className="text-right text-sm text-slate-500 font-medium">{formatCurrency(emp.totalCost || 0)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             ) : (
               <div className="flex items-center justify-center h-[200px] text-muted-foreground border border-dashed rounded-md bg-slate-50/50">
                 No employee data for this period
@@ -373,46 +427,81 @@ function AdminDashboard({ data }: { data: any }) {
         </CardHeader>
         <CardContent className="pt-2">
           {projects.length > 0 ? (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead>Project</TableHead>
-                    <TableHead>Salesperson</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Hours</TableHead>
-                    <TableHead className="text-right">Cost</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {projects.map((p: any) => {
-                    const f = p.financials || {};
-                    const status = p.status || 'Unknown';
-                    const isActive = status === 'In progress' || status === 'Active';
-                    return (
-                      <TableRow key={p._id}>
-                        <TableCell className="font-medium">
-                          <Link to={`/projects/${p._id}`} className="text-blue-600 hover:underline">
-                            {p.projectName || p.projectId}
-                          </Link>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">{p.salespersonName || '-'}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={isActive ? 'default' : 'secondary'}
-                            className={isActive ? 'bg-blue-100 text-blue-800 border-none' : ''}
-                          >
-                            {status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-semibold">{fmt(f.loggedHours)}h</TableCell>
-                        <TableCell className="text-right">{formatCurrency(f.totalCost || 0)}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+            <>
+              <div className="md:hidden space-y-3">
+                {projects.map((p: any) => {
+                  const f = p.financials || {};
+                  const status = p.status || 'Unknown';
+                  const isActive = status === 'In progress' || status === 'Active';
+                  return (
+                    <div key={p._id} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex flex-col gap-3 hover:shadow-md transition-all duration-200">
+                      <div className="flex justify-between items-start">
+                        <Link to={`/projects/${p._id}`} className="font-semibold text-slate-800 hover:text-blue-600 transition-colors">
+                          {p.projectName || p.projectId}
+                        </Link>
+                        <Badge variant={isActive ? 'default' : 'secondary'} className={isActive ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-none px-2.5 shadow-none' : 'shadow-none'}>
+                          {status}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-slate-500">
+                        <Users className="h-4 w-4 text-slate-400" />
+                        {p.salespersonName || 'Unassigned'}
+                      </div>
+                      <div className="flex justify-between items-center mt-2 pt-3 border-t border-slate-100/60">
+                        <div className="flex flex-col">
+                          <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Cost</span>
+                          <span className="text-sm font-semibold text-slate-700">{formatCurrency(f.totalCost || 0)}</span>
+                        </div>
+                        <div className="flex flex-col text-right">
+                          <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Hours</span>
+                          <span className="text-sm font-bold text-blue-600">{fmt(f.loggedHours)}h</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent border-b-slate-200">
+                      <TableHead className="font-semibold text-slate-600">Project</TableHead>
+                      <TableHead className="font-semibold text-slate-600">Salesperson</TableHead>
+                      <TableHead className="font-semibold text-slate-600">Status</TableHead>
+                      <TableHead className="text-right font-semibold text-slate-600">Hours</TableHead>
+                      <TableHead className="text-right font-semibold text-slate-600">Cost</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {projects.map((p: any) => {
+                      const f = p.financials || {};
+                      const status = p.status || 'Unknown';
+                      const isActive = status === 'In progress' || status === 'Active';
+                      return (
+                        <TableRow key={p._id} className="hover:bg-slate-50/60 group transition-colors">
+                          <TableCell className="font-medium py-4">
+                            <Link to={`/projects/${p._id}`} className="text-slate-800 font-semibold group-hover:text-blue-600 transition-colors flex items-center gap-2">
+                              {p.projectName || p.projectId}
+                            </Link>
+                          </TableCell>
+                          <TableCell className="text-slate-500 font-medium">{p.salespersonName || '-'}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={isActive ? 'default' : 'secondary'}
+                              className={isActive ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-none shadow-none' : 'shadow-none'}
+                            >
+                              {status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-bold text-slate-700">{fmt(f.loggedHours)}h</TableCell>
+                          <TableCell className="text-right text-slate-500 font-medium">{formatCurrency(f.totalCost || 0)}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           ) : (
             <div className="flex items-center justify-center h-[150px] text-muted-foreground border border-dashed rounded-md bg-slate-50/50">
               No projects found for this period
@@ -460,17 +549,18 @@ function SalespersonDashboard({ data }: { data: any }) {
     activeTargetAmount = target.gpTarget;
   }
 
+  const getAchievementGradient = (pct: number) => {
+    if (pct < 50) return "bg-gradient-to-br from-red-500 via-red-600 to-red-800";
+    if (pct < 80) return "bg-gradient-to-br from-yellow-400 via-yellow-500 to-yellow-600";
+    return "bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-800";
+  };
+
+  const monthlyPct = monthlyTarget?.percentage || 0;
+  const quarterlyPct = quarterlyTarget?.percentage || 0;
+
   return (
     <>
       {/* Welcome Header */}
-      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 rounded-xl p-6 text-white shadow-lg">
-        <h3 className="text-2xl font-bold">
-          Welcome back, {salesperson.name || 'Salesperson'} 👋
-        </h3>
-        <p className="text-blue-100 mt-1">
-          Here's your performance overview. Keep pushing towards your targets!
-        </p>
-      </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mt-6 mb-6">
@@ -479,38 +569,38 @@ function SalespersonDashboard({ data }: { data: any }) {
           value={`${fmt(activeMetricValue)} / ${fmt(activeTargetAmount)}`}
           subtitle="Monthly Target"
           icon={Target}
-          gradient="bg-gradient-to-br from-indigo-600 to-indigo-800"
+          gradient={getAchievementGradient(monthlyPct)}
         />
         <StatCard
           title={activeMetricTitle}
           value={`${fmt(quarterlyTarget?.actual || 0)} / ${fmt(quarterlyTarget?.target || 0)}`}
           subtitle="Quarterly Target"
           icon={TrendingUp}
-          gradient="bg-gradient-to-br from-violet-600 to-violet-800"
+          gradient={getAchievementGradient(quarterlyPct)}
         />
         <StatCard
           title="Total Projects"
           value={fmt(projectsCount)}
           icon={Briefcase}
-          gradient="bg-gradient-to-br from-blue-600 to-blue-800"
+          gradient="bg-gradient-to-br from-blue-500 via-blue-600 to-blue-800"
         />
         <StatCard
           title="Target Achievement"
           value={`${targetAchievementPct.toFixed(1)}%`}
           icon={Target}
-          gradient="bg-gradient-to-br from-emerald-600 to-emerald-800"
+          gradient={getAchievementGradient(targetAchievementPct)}
         />
         <StatCard
           title="Monthly Achieved"
           value={formatCurrency(monthlyTarget?.actual || 0)}
           icon={Banknote}
-          gradient="bg-gradient-to-br from-amber-600 to-amber-800"
+          gradient={getAchievementGradient(monthlyPct)}
         />
       </div>
 
       {/* Target vs Actual Progress */}
       <Card className="shadow-sm border-slate-200 overflow-hidden bg-slate-50/30">
-        <CardHeader className="bg-white border-b border-slate-100 pb-4">
+        {/* <CardHeader className="bg-white border-b border-slate-100 pb-4">
           <CardTitle className="text-lg text-slate-800 flex items-center gap-2 uppercase tracking-wide">
             <Target className="h-5 w-5 text-indigo-600" />
             Target vs Target Achievement
@@ -518,7 +608,7 @@ function SalespersonDashboard({ data }: { data: any }) {
           <CardDescription>
             Your monthly and quarterly target progress
           </CardDescription>
-        </CardHeader>
+        </CardHeader> */}
         <CardContent className="pt-6">
           {hasTargets ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -596,36 +686,67 @@ function SalespersonDashboard({ data }: { data: any }) {
           </CardHeader>
           <CardContent className="pt-2">
             {projects.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead>Project</TableHead>
-                    <TableHead className="text-right">Hours</TableHead>
-                    <TableHead className="text-right">Cost</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <>
+                <div className="md:hidden space-y-3">
                   {projects.map((p: any) => {
                     const f = p.financials || {};
                     return (
-                      <TableRow key={p._id}>
-                        <TableCell className="font-medium">
-                          <Link to={`/projects/${p._id}`} className="text-blue-600 hover:underline">
-                            {p.projectName || p.projectId}
-                          </Link>
-                          <p className="text-xs text-muted-foreground">{p.customerName || ''}</p>
-                        </TableCell>
-                        <TableCell className="text-right font-semibold text-blue-900">
-                          {(f.loggedHours || 0).toLocaleString()}h
-                        </TableCell>
-                        <TableCell className="text-right text-sm">
-                          {formatCurrency(f.totalCost || 0)}
-                        </TableCell>
-                      </TableRow>
+                      <div key={p._id} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex flex-col gap-3 hover:shadow-md transition-shadow">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <Link to={`/projects/${p._id}`} className="font-semibold text-slate-800 hover:text-blue-600 transition-colors">
+                              {p.projectName || p.projectId}
+                            </Link>
+                            <p className="text-xs text-slate-500 mt-1">{p.customerName || ''}</p>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center pt-3 border-t border-slate-100/60">
+                          <div className="flex flex-col">
+                            <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Cost</span>
+                            <span className="text-sm font-semibold text-slate-700">{formatCurrency(f.totalCost || 0)}</span>
+                          </div>
+                          <div className="flex flex-col text-right">
+                            <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Hours</span>
+                            <span className="text-sm font-bold text-blue-600">{(f.loggedHours || 0).toLocaleString()}h</span>
+                          </div>
+                        </div>
+                      </div>
                     );
                   })}
-                </TableBody>
-              </Table>
+                </div>
+                <div className="hidden md:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent border-b-slate-200">
+                        <TableHead className="font-semibold text-slate-600">Project</TableHead>
+                        <TableHead className="text-right font-semibold text-slate-600">Hours</TableHead>
+                        <TableHead className="text-right font-semibold text-slate-600">Cost</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {projects.map((p: any) => {
+                        const f = p.financials || {};
+                        return (
+                          <TableRow key={p._id} className="hover:bg-slate-50/60 group transition-colors">
+                            <TableCell className="font-medium py-4">
+                              <Link to={`/projects/${p._id}`} className="text-slate-800 font-semibold group-hover:text-blue-600 transition-colors block">
+                                {p.projectName || p.projectId}
+                              </Link>
+                              <p className="text-xs text-slate-500 mt-1">{p.customerName || ''}</p>
+                            </TableCell>
+                            <TableCell className="text-right font-bold text-slate-700">
+                              {(f.loggedHours || 0).toLocaleString()}h
+                            </TableCell>
+                            <TableCell className="text-right text-sm text-slate-500 font-medium">
+                              {formatCurrency(f.totalCost || 0)}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             ) : (
               <div className="flex items-center justify-center h-[200px] text-muted-foreground border border-dashed rounded-md bg-slate-50/50">
                 No projects assigned
@@ -705,14 +826,13 @@ export function DashboardPage() {
     <div className="space-y-6">
       {/* Page Header + Period Filter */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-blue-900">Dashboard</h2>
+        {/* <div>
           <p className="text-muted-foreground">
             {isSalesperson ? 'Your performance overview' : 'Company-wide operations overview'}
             {' — '}
             <span className="font-medium text-slate-700">{periodLabel}</span>
           </p>
-        </div>
+        </div> */}
         <PeriodFilter
           period={period}
           year={year}
