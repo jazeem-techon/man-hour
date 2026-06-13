@@ -515,7 +515,6 @@ function AdminDashboard({ data }: { data: any }) {
 
 // ─── Salesperson Dashboard ──────────────────────────────────────
 function SalespersonDashboard({ data }: { data: any }) {
-  const salesperson = data?.salesperson || {};
   const target = data?.target || {};
   const actuals = data?.actuals || {};
   const monthlyTarget = data?.monthlyTarget || null;
@@ -815,12 +814,7 @@ export function DashboardPage() {
     );
   }
 
-  const periodLabel =
-    period === 'monthly'
-      ? new Date(year, month - 1).toLocaleString('en', { month: 'long', year: 'numeric' })
-      : period === 'quarterly'
-        ? `Q${quarter} ${year}`
-        : String(year);
+
 
   return (
     <div className="space-y-6">

@@ -1,6 +1,5 @@
 import { NavLink, Outlet } from 'react-router';
-import { LayoutDashboard, Clock, Briefcase, UserCircle, Calendar as CalendarIcon, FileText, Menu, LogOut } from 'lucide-react';
-import { useState } from 'react';
+import { LayoutDashboard, Clock, Briefcase, UserCircle, Calendar as CalendarIcon, FileText, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
