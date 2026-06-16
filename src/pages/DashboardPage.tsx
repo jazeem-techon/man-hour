@@ -95,33 +95,28 @@ function PeriodFilter({
   );
 }
 
-// ─── Stat Card ──────────────────────────────────────────────────
-function StatCard({ title, value, icon: Icon, gradient, subtitle, trend }: {
+function StatCard({ title, value, icon: Icon, valueColorClass, subtitle, trend }: {
   title: string;
   value: string;
   icon: any;
-  gradient: string;
+  valueColorClass?: string;
   subtitle?: string;
   trend?: string;
 }) {
   return (
-    <Card className={`relative overflow-hidden ${gradient} text-white border-none shadow-md hover:shadow-2xl hover:-translate-y-1 transition-all duration-300`}>
-      {/* Abstract background shapes for premium feel */}
-      <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 rounded-full bg-white opacity-10 blur-2xl"></div>
-      <div className="absolute bottom-0 left-0 -ml-8 -mb-8 w-24 h-24 rounded-full bg-white opacity-10 blur-xl"></div>
-
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
-        <CardTitle className="text-sm font-medium text-white/90">{title}</CardTitle>
-        <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-          <Icon className="h-5 w-5 text-white" />
+    <Card className="relative overflow-hidden bg-white text-slate-900 border border-slate-200 shadow-sm transition-all duration-200">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium text-slate-500">{title}</CardTitle>
+        <div className="p-2 bg-brand-primary/10 rounded-md">
+          <Icon className="h-4 w-4 text-brand-primary" />
         </div>
       </CardHeader>
-      <CardContent className="relative z-10">
-        <div className="text-3xl font-bold tracking-tight">{value}</div>
-        <div className="flex items-center justify-between mt-2">
-          {subtitle && <p className="text-sm text-white/80">{subtitle}</p>}
+      <CardContent>
+        <div className={`text-2xl font-bold tracking-tight ${valueColorClass || 'text-slate-900'}`}>{value}</div>
+        <div className="flex items-center justify-between mt-1">
+          {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
           {trend && (
-            <span className="inline-flex items-center text-xs font-medium bg-white/20 px-2 py-0.5 rounded-full backdrop-blur-sm">
+            <span className="inline-flex items-center text-xs font-medium text-brand-secondary bg-brand-secondary/10 px-2 py-0.5 rounded">
               <TrendingUp className="h-3 w-3 mr-1" />
               {trend}
             </span>
@@ -151,20 +146,20 @@ function TargetPieChart({ label, progressData, icon: Icon }: {
 
   const isEmpty = achievedPct === 0 && pendingPct === 0;
 
-  let achievedColor = '#10b981'; // emerald-500
+  let achievedColor = '#3DB7E8'; // brand-primary
   if (achievedPct < 50) {
     achievedColor = '#ef4444'; // red-500
   } else if (achievedPct < 80) {
-    achievedColor = '#eab308'; // yellow-500 (lighter yellow)
+    achievedColor = '#f59e0b'; // amber-500
   }
 
-  let pendingColor = '#e2e8f0'; // slate-200 for pending
+  let pendingColor = '#f8fafc'; // slate-50 for pending
   if (achievedPct === 0 && !isEmpty) {
     pendingColor = '#ef4444'; // Make the whole pie red if 0% achieved
   }
 
   const data = isEmpty
-    ? [{ name: 'No Data', value: 100, fill: '#f1f5f9' }] // Slate-100 for empty state
+    ? [{ name: 'No Data', value: 100, fill: '#f8fafc' }] // Slate-50 for empty state
     : [
       { name: 'Target Achieved', value: achievedPct, fill: achievedColor },
       { name: 'Target Pending', value: pendingPct, fill: pendingColor }
@@ -181,13 +176,11 @@ function TargetPieChart({ label, progressData, icon: Icon }: {
       <text
         x={x}
         y={y}
-        fill="white"
+        fill="#111827"
         textAnchor="middle"
         dominantBaseline="central"
-        style={{ textShadow: '0px 2px 5px rgba(0,0,0,0.5)' }}
       >
-        <tspan x={x} dy="-0.2em" fontSize="28" fontWeight="800" fontFamily="system-ui, sans-serif">{`${(percent * 100).toFixed(0)}%`}</tspan>
-        <tspan x={x} dy="1.4em" fontSize="13" fontWeight="600" fillOpacity={0.95}>{`(${name})`}</tspan>
+        <tspan x={x} dy="-0.2em" fontSize="24" fontWeight="700" fontFamily="system-ui, sans-serif">{`${(percent * 100).toFixed(0)}%`}</tspan>
       </text>
     );
   };
@@ -196,8 +189,8 @@ function TargetPieChart({ label, progressData, icon: Icon }: {
     <div className="p-6 rounded-xl border border-slate-100 bg-white shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center">
       <div className="flex justify-between items-center w-full mb-6">
         <div className="flex items-center gap-2.5">
-          {Icon && <Icon className="h-5 w-5 text-indigo-600/80" />}
-          <span className="text-base font-bold text-slate-800 tracking-tight">{label}</span>
+          {Icon && <Icon className="h-5 w-5 text-brand-secondary" />}
+          <span className="text-base font-semibold text-slate-800 tracking-tight">{label}</span>
         </div>
         {!isEmpty && (
           isAchieved ? (
@@ -283,7 +276,11 @@ function AdminDashboard({ data }: { data: any }) {
   const summary = data?.summary || {};
   const monthlyTrend = data?.monthlyTrend || [];
   const topEmployees = data?.topEmployees || [];
-  const projects = data?.projects || [];
+  const projects = [...(data?.projects || [])].sort((a: any, b: any) => {
+    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return dateB - dateA;
+  }).slice(0, 5);
 
   const fmt = (v: number) => (v || 0).toLocaleString();
 
@@ -295,22 +292,18 @@ function AdminDashboard({ data }: { data: any }) {
           title="Total Projects"
           value={fmt(summary.projectsCount)}
           icon={Briefcase}
-          gradient="bg-gradient-to-br from-blue-500 via-blue-600 to-blue-800"
-          subtitle={`${fmt(summary.activeProjectsCount || 0)} active`}
           trend="+12% this month"
         />
         <StatCard
           title="Total Man-Hours"
           value={`${fmt(summary.totalManHours)}h`}
           icon={Clock}
-          gradient="bg-gradient-to-br from-indigo-500 via-indigo-600 to-indigo-800"
           trend="+5% this month"
         />
         <StatCard
           title="Man-Hour Cost"
           value={formatCurrency(summary.totalManHourCost || 0)}
           icon={Banknote}
-          gradient="bg-gradient-to-br from-violet-500 via-violet-600 to-violet-800"
         />
       </div>
 
@@ -341,7 +334,7 @@ function AdminDashboard({ data }: { data: any }) {
                       contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                     />
                     <Legend />
-                    <Bar dataKey="manHourCost" name="Man-Hour Cost" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                    <Bar dataKey="manHourCost" name="Man-Hour Cost" fill="#4E73D8" radius={[4, 4, 0, 0]} maxBarSize={40} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -394,10 +387,10 @@ function AdminDashboard({ data }: { data: any }) {
                       {topEmployees.slice(0, 8).map((emp: any, idx: number) => (
                         <TableRow key={emp.employeeId || idx} className="hover:bg-slate-50/50 group transition-colors">
                           <TableCell className="font-medium flex items-center gap-3 py-3">
-                            <div className="h-8 w-8 border border-slate-200 group-hover:border-blue-200 transition-colors rounded-full flex items-center justify-center bg-blue-50 text-blue-700 font-semibold text-xs">
+                            <div className="h-8 w-8 border border-slate-200 group-hover:border-brand-primary/20 transition-colors rounded-full flex items-center justify-center bg-brand-primary/10 text-brand-primary font-semibold text-xs">
                               {(emp.employeeName || 'U').substring(0, 2).toUpperCase()}
                             </div>
-                            <span className="text-slate-700 group-hover:text-blue-700 transition-colors">{emp.employeeName || 'Unknown'}</span>
+                            <span className="text-slate-700 group-hover:text-brand-secondary transition-colors">{emp.employeeName || 'Unknown'}</span>
                           </TableCell>
                           <TableCell className="text-right font-bold text-slate-700">{fmt(emp.totalHours)}h</TableCell>
                           <TableCell className="text-right text-sm text-slate-500 font-medium">{formatCurrency(emp.totalCost || 0)}</TableCell>
@@ -436,10 +429,10 @@ function AdminDashboard({ data }: { data: any }) {
                   return (
                     <div key={p._id} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex flex-col gap-3 hover:shadow-md transition-all duration-200">
                       <div className="flex justify-between items-start">
-                        <Link to={`/projects/${p._id}`} className="font-semibold text-slate-800 hover:text-blue-600 transition-colors">
+                        <Link to={`/projects/${p._id}`} className="font-semibold text-slate-800 hover:text-brand-secondary transition-colors">
                           {p.projectName || p.projectId}
                         </Link>
-                        <Badge variant={isActive ? 'default' : 'secondary'} className={isActive ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-none px-2.5 shadow-none' : 'shadow-none'}>
+                        <Badge variant={isActive ? 'default' : 'secondary'} className={isActive ? 'bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20 border-none px-2.5 shadow-none' : 'shadow-none'}>
                           {status}
                         </Badge>
                       </div>
@@ -480,7 +473,7 @@ function AdminDashboard({ data }: { data: any }) {
                       return (
                         <TableRow key={p._id} className="hover:bg-slate-50/60 group transition-colors">
                           <TableCell className="font-medium py-4">
-                            <Link to={`/projects/${p._id}`} className="text-slate-800 font-semibold group-hover:text-blue-600 transition-colors flex items-center gap-2">
+                            <Link to={`/projects/${p._id}`} className="text-slate-800 font-semibold group-hover:text-brand-secondary transition-colors flex items-center gap-2">
                               {p.projectName || p.projectId}
                             </Link>
                           </TableCell>
@@ -488,7 +481,7 @@ function AdminDashboard({ data }: { data: any }) {
                           <TableCell>
                             <Badge
                               variant={isActive ? 'default' : 'secondary'}
-                              className={isActive ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-none shadow-none' : 'shadow-none'}
+                              className={isActive ? 'bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20 border-none shadow-none' : 'shadow-none'}
                             >
                               {status}
                             </Badge>
@@ -518,10 +511,28 @@ function SalespersonDashboard({ data }: { data: any }) {
   const target = data?.target || {};
   const actuals = data?.actuals || {};
   const monthlyTarget = data?.monthlyTarget || null;
-  const quarterlyTarget = data?.quarterlyTarget || null;
-  const projects = data?.projects || [];
+  let quarterlyTarget = data?.quarterlyTarget || null;
+
+  if (monthlyTarget?.target && quarterlyTarget) {
+    const adjustedTarget = monthlyTarget.target * 3;
+    const adjustedPercentage = adjustedTarget > 0 ? (quarterlyTarget.actual / adjustedTarget) * 100 : 0;
+    const adjustedRemaining = Math.max(0, adjustedTarget - quarterlyTarget.actual);
+    quarterlyTarget = {
+      ...quarterlyTarget,
+      target: adjustedTarget,
+      percentage: adjustedPercentage,
+      remaining: adjustedRemaining,
+      isAchieved: quarterlyTarget.actual >= adjustedTarget
+    };
+  }
+  const allProjects = data?.projects || [];
+  const projectsCount = data?.projectsCount || allProjects.length;
+  const projects = [...allProjects].sort((a: any, b: any) => {
+    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return dateB - dateA;
+  }).slice(0, 5);
   const monthlyTrend = data?.monthlyTrend || [];
-  const projectsCount = data?.projectsCount || projects.length;
 
   const fmt = (v: number) => (v || 0).toLocaleString();
 
@@ -548,10 +559,10 @@ function SalespersonDashboard({ data }: { data: any }) {
     activeTargetAmount = target.gpTarget;
   }
 
-  const getAchievementGradient = (pct: number) => {
-    if (pct < 50) return "bg-gradient-to-br from-red-500 via-red-600 to-red-800";
-    if (pct < 80) return "bg-gradient-to-br from-yellow-400 via-yellow-500 to-yellow-600";
-    return "bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-800";
+  const getAchievementColor = (pct: number) => {
+    if (pct < 50) return "text-red-500";
+    if (pct < 80) return "text-amber-500";
+    return "text-emerald-500";
   };
 
   const monthlyPct = monthlyTarget?.percentage || 0;
@@ -568,37 +579,36 @@ function SalespersonDashboard({ data }: { data: any }) {
           value={`${fmt(activeMetricValue)} / ${fmt(activeTargetAmount)}`}
           subtitle="Monthly Target"
           icon={Target}
-          gradient={getAchievementGradient(monthlyPct)}
+          valueColorClass={getAchievementColor(monthlyPct)}
         />
         <StatCard
           title={activeMetricTitle}
           value={`${fmt(quarterlyTarget?.actual || 0)} / ${fmt(quarterlyTarget?.target || 0)}`}
           subtitle="Quarterly Target"
           icon={TrendingUp}
-          gradient={getAchievementGradient(quarterlyPct)}
+          valueColorClass={getAchievementColor(quarterlyPct)}
         />
         <StatCard
           title="Total Projects"
           value={fmt(projectsCount)}
           icon={Briefcase}
-          gradient="bg-gradient-to-br from-blue-500 via-blue-600 to-blue-800"
         />
         <StatCard
           title="Target Achievement"
           value={`${targetAchievementPct.toFixed(1)}%`}
           icon={Target}
-          gradient={getAchievementGradient(targetAchievementPct)}
+          valueColorClass={getAchievementColor(targetAchievementPct)}
         />
         <StatCard
           title="Monthly Achieved"
           value={formatCurrency(monthlyTarget?.actual || 0)}
           icon={Banknote}
-          gradient={getAchievementGradient(monthlyPct)}
+          valueColorClass={getAchievementColor(monthlyPct)}
         />
       </div>
 
       {/* Target vs Actual Progress */}
-      <Card className="shadow-sm border-slate-200 overflow-hidden bg-slate-50/30">
+      <Card className="shadow-sm border-slate-200 overflow-hidden bg-white">
         {/* <CardHeader className="bg-white border-b border-slate-100 pb-4">
           <CardTitle className="text-lg text-slate-800 flex items-center gap-2 uppercase tracking-wide">
             <Target className="h-5 w-5 text-indigo-600" />
@@ -661,8 +671,8 @@ function SalespersonDashboard({ data }: { data: any }) {
                       contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                     />
                     <Legend />
-                    <Bar dataKey="revenue" name="Revenue" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                    <Bar dataKey="cost" name="Cost" fill="#f59e0b" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                    <Bar dataKey="revenue" name="Revenue" fill="#3DB7E8" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                    <Bar dataKey="cost" name="Cost" fill="#4E73D8" radius={[4, 4, 0, 0]} maxBarSize={40} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -728,10 +738,10 @@ function SalespersonDashboard({ data }: { data: any }) {
                         return (
                           <TableRow key={p._id} className="hover:bg-slate-50/60 group transition-colors">
                             <TableCell className="font-medium py-4">
-                              <Link to={`/projects/${p._id}`} className="text-slate-800 font-semibold group-hover:text-blue-600 transition-colors block">
+                              <Link to={`/projects/${p._id}`} className="text-slate-800 font-semibold group-hover:text-brand-secondary transition-colors block">
                                 {p.projectName || p.projectId}
                               </Link>
-                              <p className="text-xs text-slate-500 mt-1">{p.customerName || ''}</p>
+                              <p className="text-xs text-slate-500 mt-1 truncate max-w-[150px]" title={p.customerName}>{p.customerName || ''}</p>
                             </TableCell>
                             <TableCell className="text-right font-bold text-slate-700">
                               {(f.loggedHours || 0).toLocaleString()}h

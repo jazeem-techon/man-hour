@@ -104,7 +104,7 @@ export function ProjectsPage() {
       header: 'Customer',
       cell: ({ row }) => {
         const cust = row.original?.customerId;
-        return <div>{cust?.name || '-'}</div>;
+        return <div className="truncate max-w-[200px]" title={cust?.name}>{cust?.name || '-'}</div>;
       }
     },
 
@@ -205,14 +205,14 @@ export function ProjectsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight text-blue-900">Projects</h2>
+        <h2 className="text-3xl font-bold tracking-tight text-slate-900">Projects</h2>
         <p className="text-muted-foreground">Manage projects and assigned salespersons.</p>
       </div>
 
 
       <Card className="border-blue-100 shadow-md">
         <CardHeader>
-          <CardTitle className="text-blue-900">Projects Directory</CardTitle>
+          <CardTitle className="text-slate-900">Projects Directory</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row items-center py-4 justify-between px-2 gap-3">

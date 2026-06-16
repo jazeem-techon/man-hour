@@ -23,7 +23,7 @@ const navItems: NavItem[] = [
 
 const NavLinks = ({ onClick }: { onClick?: () => void }) => {
   const { isAdmin } = useAuth();
-  
+
   const filteredNavItems = navItems.filter(item => {
     if (item.adminOnly && !isAdmin) return false;
     return true;
@@ -38,15 +38,19 @@ const NavLinks = ({ onClick }: { onClick?: () => void }) => {
           onClick={onClick}
           className={({ isActive }) =>
             cn(
-              "flex items-center px-4 py-3 text-sm font-medium rounded-md transition-colors",
+              "flex items-center px-4 py-3 text-sm font-medium rounded-md transition-all duration-200",
               isActive
-                ? "bg-blue-700 text-white"
-                : "text-blue-100 hover:bg-blue-800 hover:text-white"
+                ? "bg-brand-primary text-white shadow-sm"
+                : "text-slate-300 hover:bg-white/10 hover:text-white"
             )
           }
         >
-          <item.icon className="mr-3 h-5 w-5" />
-          {item.label}
+          {({ isActive }) => (
+            <>
+              <item.icon className={cn("mr-3 h-5 w-5", isActive ? "text-white" : "text-slate-400 group-hover:text-white transition-colors")} />
+              {item.label}
+            </>
+          )}
         </NavLink>
       ))}
     </div>
@@ -59,22 +63,22 @@ export function SidebarLayout() {
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
       {/* Desktop Sidebar */}
-      <aside className="hidden w-64 flex-col bg-blue-900 text-blue-100 md:flex shadow-xl z-10">
-        <div className="flex h-16 items-center border-b border-blue-800 px-6">
+      <aside className="hidden w-64 flex-col bg-[#061239] text-slate-300 md:flex shadow-xl z-10 border-r border-slate-200/10">
+        <div className="flex h-16 items-center border-b border-white/10 px-6">
           <h1 className="text-xl font-bold text-white flex items-center">
-            <Clock className="mr-2 h-6 w-6 text-blue-300" />
+            <Clock className="mr-2 h-6 w-6 text-brand-primary" />
             ManHour Tracker
           </h1>
         </div>
         <div className="flex-1 overflow-y-auto py-4 px-3">
           <NavLinks />
         </div>
-        <div className="border-t border-blue-800 p-4">
+        <div className="border-t border-white/10 p-4">
           <button
             onClick={logout}
-            className="flex w-full items-center px-4 py-3 text-sm font-medium rounded-md text-blue-100 hover:bg-blue-800 hover:text-white transition-colors"
+            className="flex w-full items-center px-4 py-3 text-sm font-medium rounded-md text-slate-300 hover:bg-white/10 hover:text-white transition-all duration-200 group"
           >
-            <LogOut className="mr-3 h-5 w-5" />
+            <LogOut className="mr-3 h-5 w-5 text-slate-400 group-hover:text-white transition-colors" />
             Logout
           </button>
         </div>
@@ -85,8 +89,8 @@ export function SidebarLayout() {
         {/* Mobile Header */}
         <header className="flex h-16 shrink-0 items-center justify-between border-b bg-white px-4 md:hidden shadow-sm z-10">
           <div className="flex items-center">
-            <Clock className="mr-2 h-6 w-6 text-blue-600" />
-            <span className="text-lg font-bold text-blue-900">ManHour</span>
+            <Clock className="mr-2 h-6 w-6 text-brand-primary" />
+            <span className="text-lg font-bold text-[#061239]">ManHour</span>
           </div>
           <Button variant="ghost" size="icon" onClick={logout} className="text-slate-500 hover:text-slate-700">
             <LogOut className="h-5 w-5" />
@@ -109,13 +113,13 @@ export function SidebarLayout() {
               className={({ isActive }) =>
                 cn(
                   "flex flex-col items-center justify-center w-full h-full px-1 transition-colors",
-                  isActive ? "text-blue-700" : "text-slate-500 hover:text-blue-900"
+                  isActive ? "text-brand-primary" : "text-slate-500 hover:text-slate-900"
                 )
               }
             >
               {({ isActive }) => (
                 <>
-                  <item.icon className={cn("h-5 w-5 mb-1", isActive ? "text-blue-700" : "text-slate-500")} />
+                  <item.icon className={cn("h-5 w-5 mb-1", isActive ? "text-brand-primary" : "text-slate-500")} />
                   <span className="text-[10px] font-medium truncate w-full text-center">
                     {item.label.replace('Report: ', '')}
                   </span>

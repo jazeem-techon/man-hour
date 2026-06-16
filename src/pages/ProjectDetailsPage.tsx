@@ -121,7 +121,7 @@ export function ProjectDetailsPage() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-blue-900 flex items-center gap-3">
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
             {project.projectName}
             <Badge variant={isActiveStatus ? "default" : "secondary"} className={isActiveStatus ? "bg-blue-100 text-blue-800 border-none" : ""}>
               {status}
@@ -322,7 +322,7 @@ export function ProjectDetailsPage() {
                   <div key={emp.employeeId || idx} className="bg-white p-3 rounded-lg border border-slate-100 shadow-sm flex justify-between items-center">
                     <div className="font-medium text-slate-800">{emp.employeeName}</div>
                     <div className="text-right">
-                      <div className="font-semibold text-blue-900">{formatNumber(emp.hours)}h</div>
+                      <div className="font-semibold text-slate-900">{formatNumber(emp.hours)}h</div>
                       <div className="text-sm text-slate-500">{formatCurrency(emp.cost)}</div>
                     </div>
                   </div>

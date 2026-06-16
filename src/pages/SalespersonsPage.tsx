@@ -263,13 +263,13 @@ export function SalespersonsPage() {
     <ErrorBoundary>
       <div className="space-y-6">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-blue-900">Salespersons & Targets</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900">Salespersons & Targets</h2>
           <p className="text-muted-foreground">Manage your sales team and set revenue targets.</p>
         </div>
 
         <Card className="border-blue-100 shadow-md">
           <CardHeader>
-            <CardTitle className="text-blue-900">Set Salesperson Target</CardTitle>
+            <CardTitle className="text-slate-900">Set Salesperson Target</CardTitle>
           </CardHeader>
           <CardContent>
             <Form {...form}>
@@ -351,7 +351,7 @@ export function SalespersonsPage() {
 
         <Card className="border-blue-100 shadow-md">
           <CardHeader>
-            <CardTitle className="text-blue-900">Salesperson Directory</CardTitle>
+            <CardTitle className="text-slate-900">Salesperson Directory</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col sm:flex-row items-center py-4 justify-between px-2 gap-3">

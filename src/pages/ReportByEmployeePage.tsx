@@ -67,7 +67,7 @@ export function ReportByEmployeePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight text-blue-900">Report: By Employee</h2>
+        <h2 className="text-3xl font-bold tracking-tight text-slate-900">Report: By Employee</h2>
         <p className="text-muted-foreground">View detailed hour logs and leave history per employee.</p>
       </div>
 
@@ -132,7 +132,7 @@ export function ReportByEmployeePage() {
           <div className="grid gap-4 md:grid-cols-3">
             <Card className="border-blue-100 shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-blue-900">Total Hours</CardTitle>
+                <CardTitle className="text-sm font-medium text-slate-900">Total Hours</CardTitle>
                 <Clock className="h-5 w-5 text-blue-500" />
               </CardHeader>
               <CardContent>
@@ -141,7 +141,7 @@ export function ReportByEmployeePage() {
             </Card>
             <Card className="border-blue-100 shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-blue-900">Projects Involved</CardTitle>
+                <CardTitle className="text-sm font-medium text-slate-900">Projects Involved</CardTitle>
                 <Briefcase className="h-5 w-5 text-blue-500" />
               </CardHeader>
               <CardContent>
@@ -150,7 +150,7 @@ export function ReportByEmployeePage() {
             </Card>
             <Card className="border-blue-100 shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-blue-900">Leave Days Taken</CardTitle>
+                <CardTitle className="text-sm font-medium text-slate-900">Leave Days Taken</CardTitle>
                 <CalendarDays className="h-5 w-5 text-blue-500" />
               </CardHeader>
               <CardContent>
@@ -162,7 +162,7 @@ export function ReportByEmployeePage() {
           <div className="grid gap-6 md:grid-cols-2">
             <Card className="border-blue-100 shadow-sm">
               <CardHeader>
-                <CardTitle className="text-blue-900">Leave History</CardTitle>
+                <CardTitle className="text-slate-900">Leave History</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="md:hidden space-y-4">
@@ -224,7 +224,7 @@ export function ReportByEmployeePage() {
 
             <Card className="border-blue-100 shadow-sm">
               <CardHeader>
-                <CardTitle className="text-blue-900">Project Breakdown</CardTitle>
+                <CardTitle className="text-slate-900">Project Breakdown</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="md:hidden space-y-4">
@@ -242,7 +242,7 @@ export function ReportByEmployeePage() {
                           </div>
                         </div>
                       ))}
-                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex justify-between items-center font-bold text-blue-900 mt-2">
+                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex justify-between items-center font-bold text-slate-900 mt-2">
                         <span>Grand Total</span>
                         <span>{totalHours}h ({eManHours.length} entries)</span>
                       </div>
@@ -272,7 +272,7 @@ export function ReportByEmployeePage() {
                               <TableCell className="text-right text-muted-foreground">{pb.lastDate}</TableCell>
                             </TableRow>
                           ))}
-                          <TableRow className="bg-blue-50 font-bold text-blue-900 hover:bg-blue-50">
+                          <TableRow className="bg-blue-50 font-bold text-slate-900 hover:bg-blue-50">
                             <TableCell>Grand Total</TableCell>
                             <TableCell className="text-right">{totalHours}h</TableCell>
                             <TableCell className="text-right">{eManHours.length}</TableCell>

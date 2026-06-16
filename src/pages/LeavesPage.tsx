@@ -187,13 +187,13 @@ export function LeavesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight text-blue-900">Leaves</h2>
+        <h2 className="text-3xl font-bold tracking-tight text-slate-900">Leaves</h2>
         <p className="text-muted-foreground">Manage employee leave requests.</p>
       </div>
 
       <Card className="border-blue-100 shadow-md">
         <CardHeader>
-          <CardTitle className="text-blue-900">Add Leave Request</CardTitle>
+          <CardTitle className="text-slate-900">Add Leave Request</CardTitle>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -310,7 +310,7 @@ export function LeavesPage() {
 
       <Card className="border-blue-100 shadow-md">
         <CardHeader className="flex flex-col md:flex-row items-center justify-between gap-4">
-          <CardTitle className="text-blue-900">Leaves Directory</CardTitle>
+          <CardTitle className="text-slate-900">Leaves Directory</CardTitle>
           <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
             <Select
               value={(table.getColumn('employeeName')?.getFilterValue() as string) ?? ""}

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL_CLOUD || 'http://localhost:9000/api',
+  baseURL: import.meta.env.VITE_API_URL_CLOUD || 'https://api.tecbooks.online/api',
   headers: {
     'Content-Type': 'application/json',
   },
