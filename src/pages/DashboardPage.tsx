@@ -165,7 +165,7 @@ function TargetPieChart({ label, progressData, icon: Icon }: {
       { name: 'Target Pending', value: pendingPct, fill: pendingColor }
     ];
 
-  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }: any) => {
+  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent}: any) => {
     if (percent < 0.08 || isEmpty) return null;
     const isFull = percent === 1;
     const radius = isFull ? 0 : innerRadius + (outerRadius - innerRadius) * 0.5;
