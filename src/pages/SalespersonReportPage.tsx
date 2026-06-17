@@ -200,7 +200,7 @@ export function SalespersonReportPage() {
       ),
       cell: ({ row }) => {
         const rev = row.original?.actuals?.revenue as number;
-        return <div className="text-right font-medium text-green-700">{rev ? formatCurrency(rev) : '-'}</div>;
+        return <div className="text-right font-medium ">{rev ? formatCurrency(rev) : '-'}</div>;
       }
     },
     {
@@ -212,7 +212,7 @@ export function SalespersonReportPage() {
       ),
       cell: ({ row }) => {
         const tc = row.original?.actuals?.totalCost as number;
-        return <div className="text-right font-medium text-red-600">{tc ? formatCurrency(tc) : '-'}</div>;
+        return <div className="text-right font-medium ">{tc ? formatCurrency(tc) : '-'}</div>;
       }
     },
     {
@@ -224,7 +224,7 @@ export function SalespersonReportPage() {
       ),
       cell: ({ row }) => {
         const gp = row.original?.actuals?.grossProfit as number;
-        return <div className={`text-right font-medium ${gp < 0 ? 'text-red-600' : 'text-green-700'}`}>{gp ? formatCurrency(gp) : '-'}</div>;
+        return <div className={`text-right font-medium `}>{gp ? formatCurrency(gp) : '-'}</div>;
       }
     }
   ], []);
@@ -272,35 +272,35 @@ export function SalespersonReportPage() {
             <CardTitle className="text-slate-900">Salesperson Directory</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col sm:flex-row items-center py-4 justify-between px-2 gap-3">
-              <div className="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full sm:w-auto">
+            <div className="flex flex-col lg:flex-row lg:items-center py-4 justify-between px-2 gap-4">
+              <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-3 w-full lg:w-auto">
                 <Input
                   placeholder="Filter names..."
                   value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
                   onChange={(event) =>
                     table.getColumn("name")?.setFilterValue(event.target.value)
                   }
-                  className="max-w-[200px] w-full"
+                  className="w-full sm:max-w-[200px]"
                 />
-                <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
                   <Input
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full sm:w-[140px]"
+                    className="w-full sm:w-[150px]"
                   />
-                  <span className="text-slate-500 font-medium">to</span>
+                  <span className="text-slate-500 font-medium hidden sm:inline">to</span>
                   <Input
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full sm:w-[140px]"
+                    className="w-full sm:w-[150px]"
                   />
                 </div>
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full sm:w-auto ml-auto">
+                  <Button variant="outline" className="w-full lg:w-auto mt-2 lg:mt-0 ml-auto">
                     Columns <ChevronDown className="ml-2 h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -367,15 +367,15 @@ export function SalespersonReportPage() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="font-semibold text-slate-600">Total Actual Revenue</span>
-                  <span className="font-bold text-green-700">{formatCurrency(totals.revenue)}</span>
+                  <span className="font-bold">{formatCurrency(totals.revenue)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="font-semibold text-slate-600">Total Cost</span>
-                  <span className="font-bold text-red-600">{formatCurrency(totals.totalCost)}</span>
+                  <span className="font-bold">{formatCurrency(totals.totalCost)}</span>
                 </div>
                 <div className="flex justify-between items-center border-t border-slate-200 pt-2 mt-2">
                   <span className="font-bold text-slate-800">Total Gross Profit</span>
-                  <span className={`font-bold ${totals.grossProfit < 0 ? 'text-red-600' : 'text-green-700'}`}>{formatCurrency(totals.grossProfit)}</span>
+                  <span className="font-bold">{formatCurrency(totals.grossProfit)}</span>
                 </div>
               </div>
             </div>
@@ -421,13 +421,13 @@ export function SalespersonReportPage() {
                         return <TableCell key={id} className="text-right">{formatCurrency(totals.targetAmount)}</TableCell>
                       }
                       if (id === 'actuals_revenue') {
-                        return <TableCell key={id} className="text-right text-green-700">{formatCurrency(totals.revenue)}</TableCell>
+                        return <TableCell key={id} className="text-right">{formatCurrency(totals.revenue)}</TableCell>
                       }
                       if (id === 'actuals_totalCost') {
-                        return <TableCell key={id} className="text-right text-red-600">{formatCurrency(totals.totalCost)}</TableCell>
+                        return <TableCell key={id} className="text-right">{formatCurrency(totals.totalCost)}</TableCell>
                       }
                       if (id === 'actuals_grossProfit') {
-                        return <TableCell key={id} className={`text-right ${totals.grossProfit < 0 ? 'text-red-600' : 'text-green-700'}`}>{formatCurrency(totals.grossProfit)}</TableCell>
+                        return <TableCell key={id} className="text-right">{formatCurrency(totals.grossProfit)}</TableCell>
                       }
                       if (i === 0) {
                         return <TableCell key={id}>Total</TableCell>

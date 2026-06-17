@@ -95,16 +95,16 @@ function PeriodFilter({
   );
 }
 
-function StatCard({ title, value, icon: Icon, valueColorClass, subtitle, trend }: {
+function StatCard({ title, value, icon: Icon, cardBgClass, subtitle, trend }: {
   title: string;
   value: string;
   icon: any;
-  valueColorClass?: string;
+  cardBgClass?: string;
   subtitle?: string;
   trend?: string;
 }) {
   return (
-    <Card className="relative overflow-hidden bg-white text-slate-900 border border-slate-200 shadow-sm transition-all duration-200">
+    <Card className={`relative overflow-hidden shadow-sm transition-all duration-200 ${cardBgClass || 'bg-white text-slate-900 border-slate-200'}`}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-slate-500">{title}</CardTitle>
         <div className="p-2 bg-brand-primary/10 rounded-md">
@@ -112,7 +112,7 @@ function StatCard({ title, value, icon: Icon, valueColorClass, subtitle, trend }
         </div>
       </CardHeader>
       <CardContent>
-        <div className={`text-2xl font-bold tracking-tight ${valueColorClass || 'text-slate-900'}`}>{value}</div>
+        <div className="text-2xl font-bold tracking-tight">{value}</div>
         <div className="flex items-center justify-between mt-1">
           {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
           {trend && (
@@ -277,8 +277,8 @@ function AdminDashboard({ data }: { data: any }) {
   const monthlyTrend = data?.monthlyTrend || [];
   const topEmployees = data?.topEmployees || [];
   const projects = [...(data?.projects || [])].sort((a: any, b: any) => {
-    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    const dateA = a.projectDate ? new Date(a.projectDate).getTime() : 0;
+    const dateB = b.projectDate ? new Date(b.projectDate).getTime() : 0;
     return dateB - dateA;
   }).slice(0, 5);
 
@@ -287,23 +287,41 @@ function AdminDashboard({ data }: { data: any }) {
   return (
     <>
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <StatCard
           title="Total Projects"
           value={fmt(summary.projectsCount)}
           icon={Briefcase}
-          trend="+12% this month"
         />
         <StatCard
-          title="Total Man-Hours"
-          value={`${fmt(summary.totalManHours)}h`}
-          icon={Clock}
-          trend="+5% this month"
+          title="Total Revenue"
+          value={formatCurrency(summary.totalRevenue || 0)}
+          icon={Banknote}
+          cardBgClass="bg-green-50 border border-green-200 text-green-900"
+        />
+        <StatCard
+          title="Total Cost"
+          value={formatCurrency(summary.totalCost || 0)}
+          icon={Briefcase}
+          cardBgClass="bg-red-50 border border-red-200 text-red-900"
         />
         <StatCard
           title="Man-Hour Cost"
           value={formatCurrency(summary.totalManHourCost || 0)}
-          icon={Banknote}
+          icon={Clock}
+          cardBgClass="bg-amber-50 border border-amber-200 text-amber-900"
+        />
+        <StatCard
+          title="Total Gross Profit"
+          value={formatCurrency(summary.grossProfit || 0)}
+          icon={TrendingUp}
+          cardBgClass={(summary.grossProfit || 0) < 0 ? 'bg-red-50 border border-red-200 text-red-900' : 'bg-green-50 border border-green-200 text-green-900'}
+        />
+        <StatCard
+          title="Total Net Profit"
+          value={formatCurrency(summary.netProfit || 0)}
+          icon={TrendingUp}
+          cardBgClass={(summary.netProfit || 0) < 0 ? 'bg-red-50 border border-red-200 text-red-900' : 'bg-green-50 border border-green-200 text-green-900'}
         />
       </div>
 
@@ -508,6 +526,7 @@ function AdminDashboard({ data }: { data: any }) {
 
 // ─── Salesperson Dashboard ──────────────────────────────────────
 function SalespersonDashboard({ data }: { data: any }) {
+  // const target = data?.target || {};
   const actuals = data?.actuals || {};
   const monthlyTarget = data?.monthlyTarget || null;
   let quarterlyTarget = data?.quarterlyTarget || null;
@@ -527,8 +546,8 @@ function SalespersonDashboard({ data }: { data: any }) {
   const allProjects = data?.projects || [];
   const projectsCount = data?.projectsCount || allProjects.length;
   const projects = [...allProjects].sort((a: any, b: any) => {
-    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    const dateA = a.projectDate ? new Date(a.projectDate).getTime() : 0;
+    const dateB = b.projectDate ? new Date(b.projectDate).getTime() : 0;
     return dateB - dateA;
   }).slice(0, 5);
   const monthlyTrend = data?.monthlyTrend || [];
@@ -541,9 +560,9 @@ function SalespersonDashboard({ data }: { data: any }) {
   const targetAchievementPct = Math.max(monthlyTarget?.percentage || 0, quarterlyTarget?.percentage || 0);
 
   const getAchievementColor = (pct: number) => {
-    if (pct < 50) return "text-red-500";
-    if (pct < 80) return "text-amber-500";
-    return "text-emerald-500";
+    if (pct < 50) return "bg-red-50 border border-red-200 text-red-900";
+    if (pct < 80) return "bg-amber-50 border border-amber-200 text-amber-900";
+    return "bg-emerald-50 border border-emerald-200 text-emerald-900";
   };
 
   // const monthlyPct = monthlyTarget?.percentage || 0;
@@ -564,31 +583,31 @@ function SalespersonDashboard({ data }: { data: any }) {
           title="Total Revenue"
           value={formatCurrency(actuals.revenue || 0)}
           icon={Banknote}
-          valueColorClass="text-green-700"
+          cardBgClass="bg-green-50 border border-green-200 text-green-900"
         />
         <StatCard
           title="Total Cost"
           value={formatCurrency(actuals.totalCost || 0)}
           icon={Briefcase}
-          valueColorClass="text-red-600"
+          cardBgClass="bg-red-50 border border-red-200 text-red-900"
         />
         <StatCard
           title="Total Gross Profit"
           value={formatCurrency(actuals.grossProfit || 0)}
           icon={TrendingUp}
-          valueColorClass={(actuals.grossProfit || 0) < 0 ? 'text-red-600' : 'text-green-700'}
+          cardBgClass={(actuals.grossProfit || 0) < 0 ? 'bg-red-50 border border-red-200 text-red-900' : 'bg-green-50 border border-green-200 text-green-900'}
         />
         <StatCard
           title="Total Net"
           value={formatCurrency(actuals.grossProfit || 0)}
           icon={TrendingUp}
-          valueColorClass={(actuals.grossProfit || 0) < 0 ? 'text-red-600' : 'text-green-700'}
+          cardBgClass={(actuals.grossProfit || 0) < 0 ? 'bg-red-50 border border-red-200 text-red-900' : 'bg-green-50 border border-green-200 text-green-900'}
         />
         <StatCard
           title="Target Achievement"
           value={`${targetAchievementPct.toFixed(1)}%`}
           icon={Target}
-          valueColorClass={getAchievementColor(targetAchievementPct)}
+          cardBgClass={getAchievementColor(targetAchievementPct)}
         />
       </div>
 

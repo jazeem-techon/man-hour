@@ -16,10 +16,10 @@ export const employees: any[] = [
 ]
 
 export const projects: any[] = [
-  { _id: 'p1', name: 'Abu Dhabi Metro Expansion', salespersonId: 's1', isActive: true, createdAt: '2024-01-20', customer: 'Abu Dhabi Transport', revenue: 500000, purchaseCost: 150000 },
-  { _id: 'p2', name: 'ADNOC Digital Infrastructure', salespersonId: 's2', isActive: true, createdAt: '2024-02-05', customer: 'ADNOC', revenue: 750000, purchaseCost: 200000 },
-  { _id: 'p3', name: 'Dubai Mall ELV System', salespersonId: 's1', isActive: true, createdAt: '2024-02-15', customer: 'Emaar', revenue: 300000, purchaseCost: 80000 },
-  { _id: 'p4', name: 'Etihad HQ Retrofit', salespersonId: 's3', isActive: false, createdAt: '2024-03-01', customer: 'Etihad Airways', revenue: 200000, purchaseCost: 60000 },
+  { _id: 'p1', name: 'Abu Dhabi Metro Expansion', salespersonId: 's1', isActive: true, projectDate: '2024-01-20', customer: 'Abu Dhabi Transport', revenue: 500000, purchaseCost: 150000 },
+  { _id: 'p2', name: 'ADNOC Digital Infrastructure', salespersonId: 's2', isActive: true, projectDate: '2024-02-05', customer: 'ADNOC', revenue: 750000, purchaseCost: 200000 },
+  { _id: 'p3', name: 'Dubai Mall ELV System', salespersonId: 's1', isActive: true, projectDate: '2024-02-15', customer: 'Emaar', revenue: 300000, purchaseCost: 80000 },
+  { _id: 'p4', name: 'Etihad HQ Retrofit', salespersonId: 's3', isActive: false, projectDate: '2024-03-01', customer: 'Etihad Airways', revenue: 200000, purchaseCost: 60000 },
 ]
 
 export const manHours: any[] = [

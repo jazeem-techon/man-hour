@@ -22,7 +22,7 @@ export interface Project {
   customerId: Customer
   billingMethod: 'Fixed Cost for Project' | 'Based on Project Hours' | 'Based on Task Hours' | 'Based on Staff Hours'
   isActive: boolean
-  createdAt: string
+  projectDate: string
   tasks?: any[]
   financials?: {
     revenue: number

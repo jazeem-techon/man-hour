@@ -101,14 +101,14 @@ export function ProjectsPage() {
 
   const columns = useMemo<ColumnDef<any>[]>(() => [
     {
-      accessorKey: 'createdAt',
+      accessorKey: 'projectDate',
       header: ({ column }) => (
         <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
           Date <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
       cell: ({ row }) => {
-        const date = row.getValue('createdAt');
+        const date = row.getValue('projectDate');
         return <div>{date ? new Date(date as string).toLocaleDateString() : '-'}</div>;
       }
     },
@@ -355,7 +355,7 @@ export function ProjectsPage() {
                 <div key={row.id} className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col gap-2">
                   {row.getVisibleCells().map((cell) => {
                     const getHeaderLabel = (id: string) => {
-                      if (id === 'createdAt') return 'Date';
+                      if (id === 'projectDate') return 'Date';
                       if (id === 'projectName') return 'Job Id';
                       if (id === 'customer') return 'Customer';
                       if (id === 'salespersonName') return 'Sales Man';
