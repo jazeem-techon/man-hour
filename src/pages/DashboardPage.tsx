@@ -137,7 +137,7 @@ function TargetPieChart({ label, progressData, icon: Icon }: {
     return null;
   }
 
-  const { target, actual, percentage, remaining, isAchieved } = progressData;
+  const { target, actual, percentage, remaining } = progressData;
   const isNegative = actual < 0;
 
   const safePercentage = isNaN(percentage) || !isFinite(percentage) ? 0 : percentage;
@@ -508,7 +508,6 @@ function AdminDashboard({ data }: { data: any }) {
 
 // ─── Salesperson Dashboard ──────────────────────────────────────
 function SalespersonDashboard({ data }: { data: any }) {
-  const target = data?.target || {};
   const actuals = data?.actuals || {};
   const monthlyTarget = data?.monthlyTarget || null;
   let quarterlyTarget = data?.quarterlyTarget || null;
@@ -540,24 +539,6 @@ function SalespersonDashboard({ data }: { data: any }) {
 
   // Calculate an overall achievement percentage for the summary card
   const targetAchievementPct = Math.max(monthlyTarget?.percentage || 0, quarterlyTarget?.percentage || 0);
-
-  let activeMetricTitle = "Gross Profit";
-  let activeMetricValue = actuals.grossProfit || 0;
-  let activeTargetAmount = 0;
-
-  if (target.revenueTarget > 0) {
-    activeMetricTitle = "Actual Revenue";
-    activeMetricValue = actuals.revenue || 0;
-    activeTargetAmount = target.revenueTarget;
-  } else if (target.netProfitTarget > 0) {
-    activeMetricTitle = "Net Profit";
-    activeMetricValue = actuals.netProfit || 0;
-    activeTargetAmount = target.netProfitTarget;
-  } else if (target.gpTarget > 0) {
-    activeMetricTitle = "Gross Profit";
-    activeMetricValue = actuals.grossProfit || 0;
-    activeTargetAmount = target.gpTarget;
-  }
 
   const getAchievementColor = (pct: number) => {
     if (pct < 50) return "text-red-500";
