@@ -18,21 +18,24 @@ import {
   VisibilityState,
   ColumnDef
 } from '@tanstack/react-table';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { ArrowUpDown, Loader2, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Link } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
-  fetchManhourProjects
+  fetchManhourProjects,
+  fetchProjectsBySalesperson
 } from '@/api/manhourTrackerApi';
 
 
 
 export function ProjectsPage() {
+  const { salespersonId } = useParams<{ salespersonId: string }>();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [data, setData] = useState<any[]>([]);
+  const [backendTotals, setBackendTotals] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [startDate, setStartDate] = useState(() => {
     const today = new Date();
@@ -52,8 +55,25 @@ export function ProjectsPage() {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const projectsRes = await fetchManhourProjects({ startDate, endDate, limit: 1000 });
+      let projectsRes;
+      if (salespersonId) {
+        projectsRes = await fetchProjectsBySalesperson(salespersonId, { startDate, endDate, limit: 1000 });
+      } else {
+        projectsRes = await fetchManhourProjects({ startDate, endDate, limit: 1000 });
+      }
       setData(Array.isArray(projectsRes) ? projectsRes : (projectsRes?.data || []));
+      if (projectsRes && !Array.isArray(projectsRes)) {
+        const t = projectsRes.totals || projectsRes;
+        setBackendTotals({
+          revenue: t.totalRevenue || 0,
+          totalCost: t.totalPurchaseCost || 0,
+          laborCost: t.totalManHourCost || 0,
+          grossProfit: t.totalGp || 0,
+          net: t.totalNet || 0,
+        });
+      } else {
+        setBackendTotals(null);
+      }
     } catch (error) {
       console.error("Failed to fetch data", error);
       toast.error("Failed to load page data");
@@ -64,9 +84,20 @@ export function ProjectsPage() {
 
   useEffect(() => {
     loadData();
-  }, [startDate, endDate]);
+  }, [startDate, endDate, salespersonId]);
 
   const filteredData = useMemo(() => data, [data]);
+
+  const uniqueSalespersons = useMemo(() => {
+    const spSet = new Set<string>();
+    data.forEach(row => {
+      const name = row.salespersonName || row.salesperson?.name || row.salesPersonId?.name || row.salesperson || 'Not Assigned';
+      if (typeof name === 'string') {
+        spSet.add(name);
+      }
+    });
+    return Array.from(spSet).sort();
+  }, [data]);
 
   const columns = useMemo<ColumnDef<any>[]>(() => [
     {
@@ -93,9 +124,11 @@ export function ProjectsPage() {
         const pId = row.original?._id;
         const displayId = row.getValue('projectName') as string;
         return (
-          <Link to={`/projects/${pId}`} className="text-blue-600 hover:underline font-medium">
-            {displayId}
-          </Link>
+          <div className="flex flex-col">
+            <Link to={`/projects/${pId}`} className="text-blue-600 hover:underline font-medium">
+              {displayId}
+            </Link>
+          </div>
         );
       }
     },
@@ -109,21 +142,19 @@ export function ProjectsPage() {
     },
 
     {
-      accessorKey: 'salespersonName',
+      id: 'salespersonName',
+      accessorFn: (row) => row.salespersonName || row.salesperson?.name || row.salesPersonId?.name || row.salesperson || 'Not Assigned',
       header: ({ column }) => (
         <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
           Sales Man <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
       cell: ({ row }) => {
-        const spName = row.getValue('salespersonName') ||
-          row.original?.salesperson?.name ||
-          row.original?.salesPersonId?.name ||
-          row.original?.salesperson;
-        return <div>{spName as string || 'Not Assigned'}</div>;
+        return <div>{row.getValue('salespersonName') as string}</div>;
       }
     },
     {
+      id: 'revenue',
       accessorKey: 'financials.revenue',
       header: ({ column }) => (
         <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
@@ -136,10 +167,11 @@ export function ProjectsPage() {
       }
     },
     {
+      id: 'totalCost',
       accessorKey: 'financials.totalCost',
       header: ({ column }) => (
         <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-         Purchase Cost <ArrowUpDown className="ml-2 h-4 w-4" />
+          Purchase Cost <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
       cell: ({ row }) => {
@@ -148,18 +180,47 @@ export function ProjectsPage() {
       }
     },
     {
-      accessorKey: 'financials.loggedHours',
+      id: 'laborCost',
+      accessorKey: 'financials.laborCost',
       header: ({ column }) => (
-        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Total Man Hours <ArrowUpDown className="ml-2 h-4 w-4" />
+        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          Man Hour Cost <ArrowUpDown className="h-4 w-4" />
         </Button>
       ),
       cell: ({ row }) => {
-        const hrs = row.original?.financials?.loggedHours as number;
-        return <div className="text-right font-medium">{hrs || 0}h</div>;
+        const cost = row.original?.financials?.laborCost as number;
+        return <div className="text-right font-medium">{cost ? formatCurrency(cost) : '-'}</div>;
       }
     },
-   {
+    {
+      id: 'grossProfit',
+      accessorKey: 'financials.grossProfit',
+      header: ({ column }) => (
+        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          Gross Profit <ArrowUpDown className="h-4 w-4 ml-2" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const gp = row.original?.financials?.grossProfit as number;
+        return <div className="text-right font-medium">{gp !== undefined ? formatCurrency(gp) : '-'}</div>;
+      }
+    },
+    {
+      id: 'netProfit',
+      accessorFn: (row) => (row.financials?.grossProfit || 0) - (row.financials?.laborCost || 0),
+      header: ({ column }) => (
+        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          Net Profit <ArrowUpDown className="h-4 w-4 ml-2" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const gp = row.original?.financials?.grossProfit || 0;
+        const labor = row.original?.financials?.laborCost || 0;
+        const net = gp - labor;
+        return <div className="text-right font-medium">{formatCurrency(net)}</div>;
+      }
+    },
+    {
       accessorKey: 'status',
       header: 'Status',
       cell: ({ row }) => {
@@ -194,6 +255,8 @@ export function ProjectsPage() {
     },
   });
 
+  const totals = backendTotals || { revenue: 0, totalCost: 0, laborCost: 0, grossProfit: 0, net: 0 };
+
   if (isLoading) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
@@ -215,35 +278,53 @@ export function ProjectsPage() {
           <CardTitle className="text-slate-900">Projects Directory</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col sm:flex-row items-center py-4 justify-between px-2 gap-3">
-            <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+          <div className="flex flex-col lg:flex-row lg:items-center py-4 justify-between px-2 gap-4">
+            <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-3 w-full lg:w-auto">
               <Input
                 placeholder="Filter projects..."
                 value={(table.getColumn("projectName")?.getFilterValue() as string) ?? ""}
                 onChange={(event) =>
                   table.getColumn("projectName")?.setFilterValue(event.target.value)
                 }
-                className="max-w-sm w-full"
+                className="w-full sm:max-w-[200px]"
               />
-              <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Select
+                value={(table.getColumn("salespersonName")?.getFilterValue() as string) || "all"}
+                onValueChange={(value) =>
+                  table.getColumn("salespersonName")?.setFilterValue(value === "all" ? "" : value)
+                }
+              >
+                <SelectTrigger className="w-full sm:max-w-[200px]">
+                  <SelectValue placeholder="All Salesmen" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Salesmen</SelectItem>
+                  {uniqueSalespersons.map((sp) => (
+                    <SelectItem key={sp} value={sp}>
+                      {sp}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex items-center flex-col sm:flex-row gap-2 w-full sm:w-auto">
                 <Input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full sm:w-[140px]"
+                  className="flex-1"
                 />
                 <span className="text-slate-500 font-medium">to</span>
                 <Input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full sm:w-[140px]"
+                  className="flex-1"
                 />
               </div>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full sm:w-auto ml-auto">
+                <Button variant="outline" className="w-full sm:w-auto lg:ml-auto">
                   Columns <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -261,7 +342,7 @@ export function ProjectsPage() {
                           column.toggleVisibility(!!value)
                         }
                       >
-                        {column.id.replace('financials.', 'Financials: ')}
+                        {column.id.replace('financials.', 'Financials: ').replace('revenue', 'Revenue').replace('totalCost', 'Purchase Cost').replace('laborCost', 'Man Hour Cost').replace('grossProfit', 'Gross Profit').replace('netProfit', 'Net Profit')}
                       </DropdownMenuCheckboxItem>
                     )
                   })}
@@ -278,9 +359,11 @@ export function ProjectsPage() {
                       if (id === 'projectName') return 'Job Id';
                       if (id === 'customer') return 'Customer';
                       if (id === 'salespersonName') return 'Sales Man';
-                      if (id === 'financials_revenue') return 'Revenue';
-                      if (id === 'financials_totalCost') return 'Purchase Cost';
-                      if (id === 'financials_loggedHours') return 'Total Man Hours';
+                      if (id === 'revenue' || id === 'financials_revenue') return 'Revenue';
+                      if (id === 'totalCost' || id === 'financials_totalCost') return 'Purchase Cost';
+                      if (id === 'laborCost' || id === 'financials_laborCost') return 'Man Hour Cost';
+                      if (id === 'grossProfit' || id === 'financials_grossProfit') return 'Gross Profit';
+                      if (id === 'netProfit') return 'Net Profit';
                       if (id === 'status') return 'Status';
                       return id;
                     };
@@ -299,6 +382,31 @@ export function ProjectsPage() {
               ))
             ) : (
               <div className="text-center p-4 text-slate-500">No projects found.</div>
+            )}
+            {table.getRowModel().rows?.length > 0 && (
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm mt-6">
+                <h3 className="font-bold text-slate-800 border-b border-slate-200 pb-2 mb-3">Totals Summary</h3>
+                <div className="flex justify-between items-center text-sm mb-2">
+                  <span className="font-semibold text-slate-600">Revenue</span>
+                  <span className="text-right font-bold text-slate-800">{formatCurrency(totals.revenue)}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm mb-2">
+                  <span className="font-semibold text-slate-600">Purchase Cost</span>
+                  <span className="text-right font-bold text-slate-800">{formatCurrency(totals.totalCost)}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm mb-2">
+                  <span className="font-semibold text-slate-600">Man Hour Cost</span>
+                  <span className="text-right font-bold text-slate-800">{formatCurrency(totals.laborCost)}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm mb-2">
+                  <span className="font-semibold text-slate-600">Gross Profit</span>
+                  <span className="text-right font-bold text-slate-800">{formatCurrency(totals.grossProfit)}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="font-semibold text-slate-600">Net Profit</span>
+                  <span className="text-right font-bold text-slate-800">{formatCurrency(totals.net)}</span>
+                </div>
+              </div>
             )}
           </div>
           <div className="hidden md:block rounded-md border">
@@ -335,6 +443,32 @@ export function ProjectsPage() {
                   </TableRow>
                 )}
               </TableBody>
+              <TableFooter>
+                <TableRow className="bg-slate-50 hover:bg-slate-50 font-bold">
+                  {table.getHeaderGroups()[0].headers.map((header, i) => {
+                    const id = header.column.id;
+                    if (id === 'revenue' || id === 'financials_revenue' || id === 'financials.revenue') {
+                      return <TableCell key={id} className="text-right">{formatCurrency(totals.revenue)}</TableCell>
+                    }
+                    if (id === 'totalCost' || id === 'financials_totalCost' || id === 'financials.totalCost') {
+                      return <TableCell key={id} className="text-right">{formatCurrency(totals.totalCost)}</TableCell>
+                    }
+                    if (id === 'laborCost' || id === 'financials_laborCost' || id === 'financials.laborCost') {
+                      return <TableCell key={id} className="text-right">{formatCurrency(totals.laborCost)}</TableCell>
+                    }
+                    if (id === 'grossProfit' || id === 'financials_grossProfit' || id === 'financials.grossProfit') {
+                      return <TableCell key={id} className="text-right">{formatCurrency(totals.grossProfit)}</TableCell>
+                    }
+                    if (id === 'netProfit') {
+                      return <TableCell key={id} className="text-right">{formatCurrency(totals.net)}</TableCell>
+                    }
+                    if (i === 0) {
+                      return <TableCell key={id}>Total</TableCell>
+                    }
+                    return <TableCell key={id}></TableCell>
+                  })}
+                </TableRow>
+              </TableFooter>
             </Table>
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-between px-2 py-4 gap-4">

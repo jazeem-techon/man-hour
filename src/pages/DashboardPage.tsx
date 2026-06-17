@@ -165,7 +165,7 @@ function TargetPieChart({ label, progressData, icon: Icon }: {
       { name: 'Target Pending', value: pendingPct, fill: pendingColor }
     ];
 
-  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent}: any) => {
+  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
     if (percent < 0.08 || isEmpty) return null;
     const isFull = percent === 1;
     const radius = isFull ? 0 : innerRadius + (outerRadius - innerRadius) * 0.5;
@@ -187,12 +187,12 @@ function TargetPieChart({ label, progressData, icon: Icon }: {
 
   return (
     <div className="p-6 rounded-xl border border-slate-100 bg-white shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center">
-      <div className="flex justify-between items-center w-full mb-6">
+      <div className="flex justify-between items-center w-full">
         <div className="flex items-center gap-2.5">
           {Icon && <Icon className="h-5 w-5 text-brand-secondary" />}
           <span className="text-base font-semibold text-slate-800 tracking-tight">{label}</span>
         </div>
-        {!isEmpty && (
+        {/* {!isEmpty && (
           isAchieved ? (
             <Badge className="bg-emerald-50 text-emerald-600 border border-emerald-200 text-xs px-2.5 py-0.5 shadow-sm">
               ✅ Achieved
@@ -202,7 +202,7 @@ function TargetPieChart({ label, progressData, icon: Icon }: {
               In Progress
             </Badge>
           )
-        )}
+        )} */}
       </div>
 
       {/* Pie Chart */}
@@ -249,7 +249,7 @@ function TargetPieChart({ label, progressData, icon: Icon }: {
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-3 gap-3 w-full text-center mt-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 w-full text-center mt-6">
         <div className="p-3 rounded-lg bg-slate-50/80 border border-slate-100 shadow-sm">
           <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Target</p>
           <p className="text-sm font-bold text-slate-800">{formatCurrency(target || 0)}</p>
@@ -565,33 +565,43 @@ function SalespersonDashboard({ data }: { data: any }) {
     return "text-emerald-500";
   };
 
-  const monthlyPct = monthlyTarget?.percentage || 0;
-  const quarterlyPct = quarterlyTarget?.percentage || 0;
+  // const monthlyPct = monthlyTarget?.percentage || 0;
+  // const quarterlyPct = quarterlyTarget?.percentage || 0;
 
   return (
     <>
       {/* Welcome Header */}
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mt-6 mb-6">
-        <StatCard
-          title={activeMetricTitle}
-          value={`${fmt(activeMetricValue)} / ${fmt(activeTargetAmount)}`}
-          subtitle="Monthly Target"
-          icon={Target}
-          valueColorClass={getAchievementColor(monthlyPct)}
-        />
-        <StatCard
-          title={activeMetricTitle}
-          value={`${fmt(quarterlyTarget?.actual || 0)} / ${fmt(quarterlyTarget?.target || 0)}`}
-          subtitle="Quarterly Target"
-          icon={TrendingUp}
-          valueColorClass={getAchievementColor(quarterlyPct)}
-        />
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-6 mb-6">
         <StatCard
           title="Total Projects"
           value={fmt(projectsCount)}
           icon={Briefcase}
+        />
+        <StatCard
+          title="Total Revenue"
+          value={formatCurrency(actuals.revenue || 0)}
+          icon={Banknote}
+          valueColorClass="text-green-700"
+        />
+        <StatCard
+          title="Total Cost"
+          value={formatCurrency(actuals.totalCost || 0)}
+          icon={Briefcase}
+          valueColorClass="text-red-600"
+        />
+        <StatCard
+          title="Total Gross Profit"
+          value={formatCurrency(actuals.grossProfit || 0)}
+          icon={TrendingUp}
+          valueColorClass={(actuals.grossProfit || 0) < 0 ? 'text-red-600' : 'text-green-700'}
+        />
+        <StatCard
+          title="Total Net"
+          value={formatCurrency(actuals.grossProfit || 0)}
+          icon={TrendingUp}
+          valueColorClass={(actuals.grossProfit || 0) < 0 ? 'text-red-600' : 'text-green-700'}
         />
         <StatCard
           title="Target Achievement"
@@ -599,17 +609,11 @@ function SalespersonDashboard({ data }: { data: any }) {
           icon={Target}
           valueColorClass={getAchievementColor(targetAchievementPct)}
         />
-        <StatCard
-          title="Monthly Achieved"
-          value={formatCurrency(monthlyTarget?.actual || 0)}
-          icon={Banknote}
-          valueColorClass={getAchievementColor(monthlyPct)}
-        />
       </div>
 
       {/* Target vs Actual Progress */}
-      <Card className="shadow-sm border-slate-200 overflow-hidden bg-white">
-        {/* <CardHeader className="bg-white border-b border-slate-100 pb-4">
+      {/* <Card className="shadow-sm border-slate-200 overflow-hidden bg-white"> */}
+      {/* <CardHeader className="bg-white border-b border-slate-100 pb-4">
           <CardTitle className="text-lg text-slate-800 flex items-center gap-2 uppercase tracking-wide">
             <Target className="h-5 w-5 text-indigo-600" />
             Target vs Target Achievement
@@ -618,29 +622,29 @@ function SalespersonDashboard({ data }: { data: any }) {
             Your monthly and quarterly target progress
           </CardDescription>
         </CardHeader> */}
-        <CardContent className="pt-6">
-          {hasTargets ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <TargetPieChart
-                label="Monthly Target Achievement"
-                progressData={monthlyTarget}
-                icon={Calendar}
-              />
-              <TargetPieChart
-                label="Quarterly Target Achievement"
-                progressData={quarterlyTarget}
-                icon={TrendingUp}
-              />
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground text-sm border border-dashed rounded-md bg-white">
-              <Target className="h-10 w-10 mx-auto mb-3 text-slate-300" />
-              <p className="font-medium text-slate-600">No targets set</p>
-              <p className="text-xs mt-1">Ask your admin to set your monthly and quarterly targets.</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* <CardContent> */}
+      {hasTargets ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <TargetPieChart
+            label="Monthly Target Achievement"
+            progressData={monthlyTarget}
+            icon={Calendar}
+          />
+          <TargetPieChart
+            label="Quarterly Target Achievement"
+            progressData={quarterlyTarget}
+            icon={TrendingUp}
+          />
+        </div>
+      ) : (
+        <div className="text-center py-8 text-muted-foreground text-sm border border-dashed rounded-md bg-white">
+          <Target className="h-10 w-10 mx-auto mb-3 text-slate-300" />
+          <p className="font-medium text-slate-600">No targets set</p>
+          <p className="text-xs mt-1">Ask your admin to set your monthly and quarterly targets.</p>
+        </div>
+      )}
+      {/* </CardContent> */}
+      {/* </Card> */}
 
 
 

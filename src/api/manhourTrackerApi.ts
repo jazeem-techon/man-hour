@@ -45,6 +45,11 @@ export const fetchManhourProjects = async (params?: any) => {
   return response.data;
 };
 
+export const fetchProjectsBySalesperson = async (salespersonId: string, params?: any) => {
+  const response = await api.get(`/manhour-tracker/projects/salesman/${salespersonId}`, { params });
+  return response.data;
+};
+
 export const fetchProjectDetails = async (projectId: string) => {
   const response = await api.get(`/manhour-tracker/projects/${projectId}`);
   return response.data;

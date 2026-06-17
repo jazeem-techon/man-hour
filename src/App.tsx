@@ -8,6 +8,7 @@ import { SalespersonsPage } from './pages/SalespersonsPage';
 import { LeavesPage } from './pages/LeavesPage';
 import { ReportByEmployeePage } from './pages/ReportByEmployeePage';
 import { ReportByProjectPage } from './pages/ReportByProjectPage';
+import { SalespersonReportPage } from './pages/SalespersonReportPage';
 import { ProjectDetailsPage } from './pages/ProjectDetailsPage';
 import { Toaster } from 'sonner';
 import { useAuth } from './features/auth/hooks/useAuth';
@@ -37,11 +38,13 @@ export default function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/manhours" element={<AdminRoute><ManHoursPage /></AdminRoute>} />
           <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/projects/salesman/:salespersonId" element={<ProjectsPage />} />
           <Route path="/projects/:projectId" element={<ProjectDetailsPage />} />
           <Route path="/salespersons" element={<AdminRoute><SalespersonsPage /></AdminRoute>} />
           <Route path="/salesperson" element={<Navigate to="/salespersons" replace />} />
           <Route path="/leaves" element={<LeavesPage />} />
           <Route path="/reports/by-employee" element={<AdminRoute><ReportByEmployeePage /></AdminRoute>} />
+          <Route path="/reports/by-salesperson" element={<SalespersonReportPage />} />
           <Route path="/reports/by-project" element={<ReportByProjectPage />} />
         </Route>
       </Routes>

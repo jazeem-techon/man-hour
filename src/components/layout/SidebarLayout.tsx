@@ -18,6 +18,7 @@ const navItems: NavItem[] = [
   { to: '/projects', label: 'Projects', icon: Briefcase },
   { to: '/salespersons', label: 'Salespersons', icon: UserCircle, adminOnly: true },
   { to: '/leaves', label: 'Leaves', icon: CalendarIcon, adminOnly: true },
+  { to: '/reports/by-salesperson', label: 'Report: By Salesperson', icon: FileText, adminOnly: true },
   { to: '/reports/by-employee', label: 'Report: By Employee', icon: FileText, adminOnly: true },
 ];
 

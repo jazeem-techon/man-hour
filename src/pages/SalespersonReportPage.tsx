@@ -1,12 +1,7 @@
 import { useState, useEffect, useMemo, Component, ErrorInfo, ReactNode } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import {
@@ -21,21 +16,12 @@ import {
   VisibilityState,
   ColumnDef
 } from '@tanstack/react-table';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { ArrowUpDown, Loader2, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { SearchableSelect } from '@/components/ui/searchable-select';
-import { fetchSalespeopleWithTargets, saveTarget } from '@/api/manhourTrackerApi';
+import { fetchSalespeopleWithTargets } from '@/api/manhourTrackerApi';
 import { formatCurrency } from '@/lib/utils';
-
-const formSchema = z.object({
-  salesPersonId: z.string().min(1, 'Salesperson is required'),
-  month: z.coerce.number().min(1).max(12),
-  year: z.coerce.number().min(2000),
-  targetType: z.enum(['revenueTarget', 'gpTarget', 'netProfitTarget']),
-  amount: z.coerce.number().min(0, 'Target must be a positive number'),
-});
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean, error: Error | null }> {
   constructor(props: { children: ReactNode }) {
@@ -61,31 +47,52 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
 }
 
 
-export function SalespersonsPage() {
+export function SalespersonReportPage() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [data, setData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const form = useForm({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      salesPersonId: '',
-      month: new Date().getMonth() + 1,
-      year: new Date().getFullYear(),
-      targetType: 'revenueTarget',
-      amount: 0
-    },
+  const [startDate, setStartDate] = useState(() => {
+    const today = new Date();
+    const firstDay = new Date(Date.UTC(today.getFullYear(), today.getMonth(), 1));
+    return firstDay.toISOString().split('T')[0];
   });
 
-  const selectedSalesPersonId = form.watch('salesPersonId');
-  const selectedSalesperson = data.find(s => s._id === selectedSalesPersonId);
+  const [endDate, setEndDate] = useState(() => {
+    const today = new Date();
+    // Get the last day of the current month
+    const lastDay = new Date(Date.UTC(today.getFullYear(), today.getMonth() + 1, 0));
+    return lastDay.toISOString().split('T')[0];
+  });
+
+  const totals = useMemo(() => {
+    let targetAmount = 0;
+    let revenue = 0;
+    let totalCost = 0;
+    let grossProfit = 0;
+
+    data.forEach(item => {
+      const t = item.target || {};
+      let amt = 0;
+      if (t.revenueTarget > 0) amt = t.revenueTarget;
+      else if (t.gpTarget > 0) amt = t.gpTarget;
+      else if (t.netProfitTarget > 0) amt = t.netProfitTarget;
+      targetAmount += amt;
+
+      revenue += (item.actuals?.revenue || 0);
+      totalCost += (item.actuals?.totalCost || 0);
+      grossProfit += (item.actuals?.grossProfit || 0);
+    });
+
+    return { targetAmount, revenue, totalCost, grossProfit };
+  }, [data]);
 
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const res = await fetchSalespeopleWithTargets();
+      const res = await fetchSalespeopleWithTargets({ startDate, endDate });
       setData(Array.isArray(res) ? res : (res?.data || []));
     } catch (error) {
       console.error("Failed to fetch salespeople", error);
@@ -97,28 +104,9 @@ export function SalespersonsPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [startDate, endDate]);
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    try {
-      const payload = {
-        salesPersonId: values.salesPersonId,
-        month: values.month,
-        year: values.year,
-        revenueTarget: values.targetType === 'revenueTarget' ? values.amount : 0,
-        gpTarget: values.targetType === 'gpTarget' ? values.amount : 0,
-        netProfitTarget: values.targetType === 'netProfitTarget' ? values.amount : 0,
-      };
 
-      await saveTarget(payload);
-      toast.success('Target updated successfully!');
-      form.reset({ ...values, amount: 0 }); // keep selected salesperson/month but reset amount
-      loadData(); // refresh data
-    } catch (error) {
-      console.error("Failed to update target", error);
-      toast.error("Failed to update target");
-    }
-  }
 
   const columns = useMemo<ColumnDef<any>[]>(() => [
     {
@@ -203,42 +191,42 @@ export function SalespersonsPage() {
         );
       }
     },
-    // {
-    //   accessorKey: 'actuals.revenue',
-    //   header: ({ column }) => (
-    //     <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-    //       Actual Revenue <ArrowUpDown className="ml-2 h-4 w-4" />
-    //     </Button>
-    //   ),
-    //   cell: ({ row }) => {
-    //     const rev = row.original?.actuals?.revenue as number;
-    //     return <div className="text-right font-medium text-green-700">{rev ? formatCurrency(rev) : '-'}</div>;
-    //   }
-    // },
-    // {
-    //   accessorKey: 'actuals.totalCost',
-    //   header: ({ column }) => (
-    //     <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-    //       Total Cost <ArrowUpDown className="ml-2 h-4 w-4" />
-    //     </Button>
-    //   ),
-    //   cell: ({ row }) => {
-    //     const tc = row.original?.actuals?.totalCost as number;
-    //     return <div className="text-right font-medium text-red-600">{tc ? formatCurrency(tc) : '-'}</div>;
-    //   }
-    // },
-    // {
-    //   accessorKey: 'actuals.grossProfit',
-    //   header: ({ column }) => (
-    //     <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-    //       Gross Profit <ArrowUpDown className="ml-2 h-4 w-4" />
-    //     </Button>
-    //   ),
-    //   cell: ({ row }) => {
-    //     const gp = row.original?.actuals?.grossProfit as number;
-    //     return <div className={`text-right font-medium ${gp < 0 ? 'text-red-600' : 'text-green-700'}`}>{gp ? formatCurrency(gp) : '-'}</div>;
-    //   }
-    // }
+    {
+      accessorKey: 'actuals.revenue',
+      header: ({ column }) => (
+        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          Actual Revenue <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const rev = row.original?.actuals?.revenue as number;
+        return <div className="text-right font-medium text-green-700">{rev ? formatCurrency(rev) : '-'}</div>;
+      }
+    },
+    {
+      accessorKey: 'actuals.totalCost',
+      header: ({ column }) => (
+        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          Total Cost <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const tc = row.original?.actuals?.totalCost as number;
+        return <div className="text-right font-medium text-red-600">{tc ? formatCurrency(tc) : '-'}</div>;
+      }
+    },
+    {
+      accessorKey: 'actuals.grossProfit',
+      header: ({ column }) => (
+        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          Gross Profit <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const gp = row.original?.actuals?.grossProfit as number;
+        return <div className={`text-right font-medium ${gp < 0 ? 'text-red-600' : 'text-green-700'}`}>{gp ? formatCurrency(gp) : '-'}</div>;
+      }
+    }
   ], []);
 
   const table = useReactTable({
@@ -273,91 +261,11 @@ export function SalespersonsPage() {
     <ErrorBoundary>
       <div className="space-y-6">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900">Salespersons & Targets</h2>
-          <p className="text-muted-foreground">Manage your sales team and set revenue targets.</p>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900">Salesperson Report</h2>
+          <p className="text-muted-foreground">View salesperson performance across a specific date range.</p>
         </div>
 
-        <Card className="border-blue-100 shadow-md">
-          <CardHeader>
-            <CardTitle className="text-slate-900">Set Salesperson Target</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control as any}
-                    name="salesPersonId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Salesperson</FormLabel>
-                        <FormControl>
-                          <SearchableSelect
-                            options={data.map(sp => ({ label: sp.name, value: sp._id }))}
-                            value={field.value}
-                            onChange={field.onChange}
-                            placeholder="Select Salesperson"
-                            searchPlaceholder="Search salespersons..."
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
 
-                  <div className="space-y-2">
-                    <Label>Email</Label>
-                    <Input readOnly value={selectedSalesperson?.email || 'Select a salesperson to view email'} className="bg-gray-50 text-gray-500" />
-                  </div>
-
-
-
-                  <FormField
-                    control={form.control as any}
-                    name="targetType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Target Type</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select target type" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="revenueTarget">Revenue Target</SelectItem>
-                            <SelectItem value="gpTarget">Gross Profit Target</SelectItem>
-                            <SelectItem value="netProfitTarget">Net Profit Target</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control as any}
-                    name="amount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Amount (AED)</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="Enter amount" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="flex justify-end pt-2">
-                  <Button type="submit" className="bg-blue-600 hover:bg-blue-700 px-8">
-                    Save Target
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
 
         <Card className="border-blue-100 shadow-md">
           <CardHeader>
@@ -365,14 +273,31 @@ export function SalespersonsPage() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col sm:flex-row items-center py-4 justify-between px-2 gap-3">
-              <Input
-                placeholder="Filter names..."
-                value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
-                onChange={(event) =>
-                  table.getColumn("name")?.setFilterValue(event.target.value)
-                }
-                className="max-w-sm w-full"
-              />
+              <div className="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full sm:w-auto">
+                <Input
+                  placeholder="Filter names..."
+                  value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
+                  onChange={(event) =>
+                    table.getColumn("name")?.setFilterValue(event.target.value)
+                  }
+                  className="max-w-[200px] w-full"
+                />
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full sm:w-[140px]"
+                  />
+                  <span className="text-slate-500 font-medium">to</span>
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full sm:w-[140px]"
+                  />
+                </div>
+              </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="w-full sm:w-auto ml-auto">
@@ -432,6 +357,28 @@ export function SalespersonsPage() {
                 <div className="text-center p-4 text-slate-500">No salespersons found.</div>
               )}
             </div>
+
+            <div className="md:hidden mt-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
+              <h3 className="font-bold text-slate-800 mb-3 border-b border-slate-200 pb-2">Totals Summary</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-slate-600">Total Target</span>
+                  <span className="font-bold text-slate-900">{formatCurrency(totals.targetAmount)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-slate-600">Total Actual Revenue</span>
+                  <span className="font-bold text-green-700">{formatCurrency(totals.revenue)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-slate-600">Total Cost</span>
+                  <span className="font-bold text-red-600">{formatCurrency(totals.totalCost)}</span>
+                </div>
+                <div className="flex justify-between items-center border-t border-slate-200 pt-2 mt-2">
+                  <span className="font-bold text-slate-800">Total Gross Profit</span>
+                  <span className={`font-bold ${totals.grossProfit < 0 ? 'text-red-600' : 'text-green-700'}`}>{formatCurrency(totals.grossProfit)}</span>
+                </div>
+              </div>
+            </div>
             <div className="hidden md:block rounded-md border">
               <Table>
                 <TableHeader>
@@ -466,6 +413,29 @@ export function SalespersonsPage() {
                     </TableRow>
                   )}
                 </TableBody>
+                <TableFooter>
+                  <TableRow className="bg-slate-50 hover:bg-slate-50 font-bold">
+                    {table.getHeaderGroups()[0].headers.map((header, i) => {
+                      const id = header.column.id;
+                      if (id === 'targetAmount') {
+                        return <TableCell key={id} className="text-right">{formatCurrency(totals.targetAmount)}</TableCell>
+                      }
+                      if (id === 'actuals_revenue') {
+                        return <TableCell key={id} className="text-right text-green-700">{formatCurrency(totals.revenue)}</TableCell>
+                      }
+                      if (id === 'actuals_totalCost') {
+                        return <TableCell key={id} className="text-right text-red-600">{formatCurrency(totals.totalCost)}</TableCell>
+                      }
+                      if (id === 'actuals_grossProfit') {
+                        return <TableCell key={id} className={`text-right ${totals.grossProfit < 0 ? 'text-red-600' : 'text-green-700'}`}>{formatCurrency(totals.grossProfit)}</TableCell>
+                      }
+                      if (i === 0) {
+                        return <TableCell key={id}>Total</TableCell>
+                      }
+                      return <TableCell key={id}></TableCell>
+                    })}
+                  </TableRow>
+                </TableFooter>
               </Table>
             </div>
             <div className="flex flex-col sm:flex-row items-center justify-between px-2 py-4 gap-4">
