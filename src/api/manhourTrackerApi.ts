@@ -68,9 +68,10 @@ export const createProject = async (data: {
 
 // ─── Man-Hour Logging ────────────────────────────────────────────
 export const submitManHourLog = async (data: {
-  projectId: string;
+  projectId?: string;
+  activityId?: string;
   employeeId: string;
-  task: string;
+  task?: string;
   hours: number;
   date: string;
   note: string;
@@ -106,5 +107,25 @@ export const fetchEmployees = async () => {
 // ─── Customers (Tecbooks shared endpoint) ────────────────────────
 export const fetchCustomers = async () => {
   const response = await api.get('/customer');
+  return response.data;
+};
+
+// ─── Activities ──────────────────────────────────────────────────
+export const fetchActivities = async () => {
+  const response = await api.get('/manhour-tracker/activities');
+  return response.data;
+};
+
+export const createActivity = async (data: { name: string }) => {
+  const response = await api.post('/manhour-tracker/activities', data);
+  return response.data;
+};
+
+export const fetchBusyEmployees = async (startDate: string, endDate?: string) => {
+  let url = `/manhour-tracker/busy-employees?startDate=${startDate}`;
+  if (endDate) {
+    url += `&endDate=${endDate}`;
+  }
+  const response = await api.get(url);
   return response.data;
 };

@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Project, Employee } from '@/types';
+import { Employee } from '@/types';
+import { Activity } from '@/features/manhours/api/getFormData';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
@@ -13,15 +14,14 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-import { CalendarIcon, AlertTriangle, Check, ChevronDown, Search } from 'lucide-react';
+import { CalendarIcon, AlertTriangle, Check, ChevronDown, Search, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { submitManHourLog, fetchBusyEmployees } from '@/api/manhourTrackerApi';
+import { submitManHourLog, createActivity } from '@/api/manhourTrackerApi';
 
 const formSchema = z.object({
-  projectId: z.string().min(1, 'Please select a project'),
+  activityId: z.string().min(1, 'Please select an activity'),
   employeeIds: z.array(z.string()).min(1, 'Please select at least one employee'),
-  task: z.string().min(1, 'Please select a task'),
   hours: z.number().min(0.5, 'Must be at least 0.5 hours').step(0.5),
   dateRange: z.object({
     from: z.date(),
@@ -30,20 +30,21 @@ const formSchema = z.object({
   note: z.string(),
 });
 
-interface ManHoursFormProps {
-  projects: Project[];
+interface ActivityHoursFormProps {
+  activities: Activity[];
   employees: Employee[];
+  onActivityCreated: () => void;
 }
 
-export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
+export function ActivityHoursForm({ activities, employees, onActivityCreated }: ActivityHoursFormProps) {
+  const activeAvailableEmployees = employees.filter(e => !e.isOnLeave);
   const employeesOnLeave = employees.filter(e => e.isOnLeave);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      projectId: '',
+      activityId: '',
       employeeIds: [],
-      task: '',
       hours: 8,
       dateRange: {
         from: new Date()
@@ -52,41 +53,30 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
     },
   });
 
-  const selectedProjectId = form.watch('projectId');
-  const selectedProject = projects.find(p => p._id === selectedProjectId);
-  
-  const projectTasks = selectedProject?.tasks || [];
-
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [employeeSearch, setEmployeeSearch] = useState("");
-  const [busyEmployeeIds, setBusyEmployeeIds] = useState<string[]>([]);
+  const [isCreatingActivity, setIsCreatingActivity] = useState(false);
+  const [newActivityName, setNewActivityName] = useState('');
+  const [showNewActivityInput, setShowNewActivityInput] = useState(false);
 
-  const dateRange = form.watch('dateRange');
-
-  // Fetch busy employees when date range changes
-  useEffect(() => {
-    async function loadBusyEmployees() {
-      if (!dateRange?.from) return;
-      try {
-        const startStr = format(dateRange.from, 'yyyy-MM-dd');
-        const endStr = dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : startStr;
-        const busyIds = await fetchBusyEmployees(startStr, endStr);
-        setBusyEmployeeIds(busyIds || []);
-        
-        // Also remove busy employees from currently selected values
-        const currentSelected = form.getValues('employeeIds');
-        const validSelected = currentSelected.filter(id => !busyIds.includes(id));
-        if (validSelected.length !== currentSelected.length) {
-          form.setValue('employeeIds', validSelected);
-        }
-      } catch (err) {
-        console.error("Failed to load busy employees", err);
+  async function handleCreateActivity() {
+    if (!newActivityName.trim()) return;
+    setIsCreatingActivity(true);
+    try {
+      const res = await createActivity({ name: newActivityName });
+      toast.success('Activity created successfully!');
+      setNewActivityName('');
+      setShowNewActivityInput(false);
+      onActivityCreated(); // Refresh activities list
+      if (res?.data?._id) {
+        form.setValue('activityId', res.data._id);
       }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to create activity');
+    } finally {
+      setIsCreatingActivity(false);
     }
-    loadBusyEmployees();
-  }, [dateRange?.from, dateRange?.to, form]);
-
-  const trulyAvailableEmployees = employees.filter(e => !e.isOnLeave && !busyEmployeeIds.includes(e._id));
+  }
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
@@ -105,9 +95,8 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
         daysToLog.forEach(date => {
           promises.push(
             submitManHourLog({
-              projectId: values.projectId,
+              activityId: values.activityId,
               employeeId: employeeId,
-              task: values.task,
               hours: values.hours,
               date: format(date, 'yyyy-MM-dd'),
               note: values.note
@@ -119,7 +108,7 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
       await Promise.all(promises);
       
       toast.success(`Successfully logged hours for ${values.employeeIds.length} employee(s) across ${daysToLog.length} day(s)!`);
-      form.reset({ hours: 8, dateRange: { from: new Date() }, note: '', projectId: '', employeeIds: [], task: '' });
+      form.reset({ hours: 8, dateRange: { from: new Date() }, note: '', activityId: '', employeeIds: [] });
     } catch (error: any) {
       console.error('Failed to log hours:', error);
       toast.error(error.response?.data?.message || 'Failed to log hours');
@@ -144,8 +133,8 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
 
       <Card className="border-blue-100 shadow-md">
         <CardHeader>
-          <CardTitle className="text-blue-900">New Entry</CardTitle>
-          <CardDescription>Fill out the details below to log new hours.</CardDescription>
+          <CardTitle className="text-blue-900">New Activity Entry</CardTitle>
+          <CardDescription>Fill out the details below to log hours against an activity.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -154,18 +143,42 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control as any}
-                  name="projectId"
+                  name="activityId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Project</FormLabel>
+                      <FormLabel>Activity</FormLabel>
                       <FormControl>
-                        <SearchableSelect
-                          options={projects.map(p => ({ label: p.projectName || p.name || 'Unknown Project', value: p._id }))}
-                          value={field.value}
-                          onChange={field.onChange}
-                          placeholder="Select a project"
-                          searchPlaceholder="Search projects..."
-                        />
+                        {showNewActivityInput ? (
+                          <div className="flex items-center gap-2">
+                            <Input 
+                              placeholder="Activity name..." 
+                              value={newActivityName} 
+                              onChange={(e) => setNewActivityName(e.target.value)} 
+                              disabled={isCreatingActivity}
+                            />
+                            <Button type="button" onClick={handleCreateActivity} disabled={isCreatingActivity || !newActivityName.trim()}>
+                              Save
+                            </Button>
+                            <Button type="button" variant="ghost" onClick={() => setShowNewActivityInput(false)}>
+                              Cancel
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1">
+                              <SearchableSelect
+                                options={activities.map(a => ({ label: a.name || 'Unknown Activity', value: a._id }))}
+                                value={field.value}
+                                onChange={field.onChange}
+                                placeholder="Select an activity"
+                                searchPlaceholder="Search activities..."
+                              />
+                            </div>
+                            <Button type="button" variant="outline" size="icon" onClick={() => setShowNewActivityInput(true)}>
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -191,7 +204,7 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
                             >
                               <div className="flex-1 truncate text-left pr-2">
                                 {field.value?.length > 0
-                                  ? trulyAvailableEmployees
+                                  ? activeAvailableEmployees
                                       .filter(e => field.value.includes(e._id))
                                       .map(e => e.name)
                                       .join(', ')
@@ -218,7 +231,7 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
                               size="sm"
                               className="h-8 px-2 text-xs"
                               onClick={() => {
-                                const allIds = trulyAvailableEmployees.map(e => e._id);
+                                const allIds = activeAvailableEmployees.map(e => e._id);
                                 field.onChange(allIds);
                               }}
                             >
@@ -239,9 +252,8 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
                               .filter((e) => e.name.toLowerCase().includes(employeeSearch.toLowerCase()))
                               .map((e) => {
                               const isSelected = field.value?.includes(e._id);
-                              const isBusy = busyEmployeeIds.includes(e._id);
-                              const isDisabled = e.isOnLeave || isBusy;
-                              
+                              const isDisabled = e.isOnLeave;
+
                               return (
                                 <div
                                   key={e._id}
@@ -270,7 +282,7 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
                                     <span className={cn(isDisabled && "text-slate-500")}>{e.name}</span>
                                     {isDisabled && (
                                       <span className="text-[10px] text-red-500 font-medium leading-none mt-0.5">
-                                        {e.isOnLeave ? '(On Leave)' : '(On Activity)'}
+                                        (On Leave)
                                       </span>
                                     )}
                                   </div>
@@ -283,30 +295,6 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
                           </div>
                         </PopoverContent>
                       </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control as any}
-                  name="task"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Task</FormLabel>
-                      <FormControl>
-                        <SearchableSelect
-                          options={projectTasks.map((task: any) => {
-                            const taskLabel = task.description || task.taskName || (typeof task === 'string' ? task : 'Unknown Task');
-                            const taskId = task._id || taskLabel;
-                            return { label: taskLabel, value: taskId };
-                          })}
-                          value={field.value}
-                          onChange={field.onChange}
-                          placeholder="Select a task"
-                          searchPlaceholder="Search tasks..."
-                        />
-                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
