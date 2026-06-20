@@ -123,11 +123,15 @@ export function ProjectsPage() {
       cell: ({ row }) => {
         const pId = row.original?._id;
         const displayId = row.getValue('projectName') as string;
+        const description = row.original?.description as string;
         return (
           <div className="flex flex-col">
             <Link to={`/projects/${pId}`} className="text-blue-600 hover:underline font-medium">
               {displayId}
             </Link>
+            {description && (
+              <span className="text-xs text-muted-foreground">{description}</span>
+            )}
           </div>
         );
       }
@@ -192,34 +196,34 @@ export function ProjectsPage() {
         return <div className="text-right font-medium">{cost ? formatCurrency(cost) : '-'}</div>;
       }
     },
-    {
-      id: 'grossProfit',
-      accessorKey: 'financials.grossProfit',
-      header: ({ column }) => (
-        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Gross Profit <ArrowUpDown className="h-4 w-4 ml-2" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const gp = row.original?.financials?.grossProfit as number;
-        return <div className="text-right font-medium">{gp !== undefined ? formatCurrency(gp) : '-'}</div>;
-      }
-    },
-    {
-      id: 'netProfit',
-      accessorFn: (row) => (row.financials?.grossProfit || 0) - (row.financials?.laborCost || 0),
-      header: ({ column }) => (
-        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Net Profit <ArrowUpDown className="h-4 w-4 ml-2" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const gp = row.original?.financials?.grossProfit || 0;
-        const labor = row.original?.financials?.laborCost || 0;
-        const net = gp - labor;
-        return <div className="text-right font-medium">{formatCurrency(net)}</div>;
-      }
-    },
+    // {
+    //   id: 'grossProfit',
+    //   accessorKey: 'financials.grossProfit',
+    //   header: ({ column }) => (
+    //     <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+    //       Gross Profit <ArrowUpDown className="h-4 w-4 ml-2" />
+    //     </Button>
+    //   ),
+    //   cell: ({ row }) => {
+    //     const gp = row.original?.financials?.grossProfit as number;
+    //     return <div className="text-right font-medium">{gp !== undefined ? formatCurrency(gp) : '-'}</div>;
+    //   }
+    // },
+    // {
+    //   id: 'netProfit',
+    //   accessorFn: (row) => (row.financials?.grossProfit || 0) - (row.financials?.laborCost || 0),
+    //   header: ({ column }) => (
+    //     <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+    //       Net Profit <ArrowUpDown className="h-4 w-4 ml-2" />
+    //     </Button>
+    //   ),
+    //   cell: ({ row }) => {
+    //     const gp = row.original?.financials?.grossProfit || 0;
+    //     const labor = row.original?.financials?.laborCost || 0;
+    //     const net = gp - labor;
+    //     return <div className="text-right font-medium">{formatCurrency(net)}</div>;
+    //   }
+    // },
     {
       accessorKey: 'status',
       header: 'Status',
@@ -467,6 +471,20 @@ export function ProjectsPage() {
                     }
                     return <TableCell key={id}></TableCell>
                   })}
+                </TableRow>
+                <TableRow className="bg-slate-50 hover:bg-slate-50 font-bold border-t">
+                  <TableCell colSpan={table.getHeaderGroups()[0].headers.length}>
+                    <div className="flex justify-end gap-12 pr-4 sm:pr-8">
+                       <div className="flex items-center gap-3">
+                          <span className="text-slate-600 uppercase text-xs tracking-wider">Gross Profit</span>
+                          <span className="text-slate-900 text-base">{formatCurrency(totals.grossProfit)}</span>
+                       </div>
+                       <div className="flex items-center gap-3">
+                          <span className="text-slate-600 uppercase text-xs tracking-wider">Net Profit</span>
+                          <span className="text-slate-900 text-base">{formatCurrency(totals.net)}</span>
+                       </div>
+                    </div>
+                  </TableCell>
                 </TableRow>
               </TableFooter>
             </Table>
