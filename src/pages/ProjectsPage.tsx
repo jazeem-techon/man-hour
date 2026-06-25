@@ -475,14 +475,14 @@ export function ProjectsPage() {
                 <TableRow className="bg-slate-50 hover:bg-slate-50 font-bold border-t">
                   <TableCell colSpan={table.getHeaderGroups()[0].headers.length}>
                     <div className="flex justify-end gap-12 pr-4 sm:pr-8">
-                       <div className="flex items-center gap-3">
-                          <span className="text-slate-600 uppercase text-xs tracking-wider">Gross Profit</span>
-                          <span className="text-slate-900 text-base">{formatCurrency(totals.grossProfit)}</span>
-                       </div>
-                       <div className="flex items-center gap-3">
-                          <span className="text-slate-600 uppercase text-xs tracking-wider">Net Profit</span>
-                          <span className="text-slate-900 text-base">{formatCurrency(totals.net)}</span>
-                       </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-slate-600 uppercase text-xs tracking-wider">Gross Profit</span>
+                        <span className="text-slate-900 text-base">{formatCurrency(totals.grossProfit)}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-slate-600 uppercase text-xs tracking-wider">Net Profit</span>
+                        <span className="text-slate-900 text-base">{formatCurrency(totals.net)}</span>
+                      </div>
                     </div>
                   </TableCell>
                 </TableRow>

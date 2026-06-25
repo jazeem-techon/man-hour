@@ -16,10 +16,11 @@ const navItems: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/manhours', label: 'Log Hours', icon: Clock, adminOnly: true },
   { to: '/projects', label: 'Projects', icon: Briefcase },
+  { to: '/timesheet', label: 'Timesheet', icon: FileText },
   { to: '/salespersons', label: 'Salespersons', icon: UserCircle, adminOnly: true },
   // { to: '/leaves', label: 'Leaves', icon: CalendarIcon, adminOnly: true },
   { to: '/reports/by-salesperson', label: 'Report: By Salesperson', icon: FileText, adminOnly: true },
-  // { to: '/reports/by-employee', label: 'Report: By Employee', icon: FileText, adminOnly: true },
+  { to: '/reports/by-employee', label: 'Report: By Employee', icon: FileText, adminOnly: true },
 ];
 
 const NavLinks = ({ onClick }: { onClick?: () => void }) => {

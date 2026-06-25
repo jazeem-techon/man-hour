@@ -1,54 +1,100 @@
-import { useState } from 'react';
-import { employees, manHours, leaves, projects } from '@/data/mockData';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format, differenceInDays } from 'date-fns';
-import { CalendarIcon, Download, Clock, Briefcase, CalendarDays } from 'lucide-react';
+import { CalendarIcon, Download, Clock, Briefcase, CalendarDays, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DateRange } from 'react-day-picker';
 import { exportToExcel } from '@/lib/excel';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { fetchEmployees, fetchManHourLogs } from '@/api/manhourTrackerApi';
 
 export function ReportByEmployeePage() {
-  const [selectedEmployee, setSelectedEmployee] = useState<string>('e1'); // Default to Mohammed Al Hashimi
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<string>('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  
+  const [logs, setLogs] = useState<any[]>([]);
+  const [isLoadingEmployees, setIsLoadingEmployees] = useState(true);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+
+  useEffect(() => {
+    async function loadEmployees() {
+      try {
+        const data = await fetchEmployees();
+        setEmployees(data || []);
+        if (data && data.length > 0) {
+          setSelectedEmployee(data[0]._id);
+        }
+      } catch (err) {
+        console.error("Failed to load employees", err);
+      } finally {
+        setIsLoadingEmployees(false);
+      }
+    }
+    loadEmployees();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedEmployee) return;
+
+    async function loadLogs() {
+      setIsLoadingLogs(true);
+      try {
+        const params: any = { employeeId: selectedEmployee, limit: 10000 };
+        if (dateRange?.from) params.startDate = dateRange.from.toISOString();
+        if (dateRange?.to) {
+            const toDate = new Date(dateRange.to);
+            toDate.setUTCHours(23, 59, 59, 999);
+            params.endDate = toDate.toISOString();
+        }
+
+        const data = await fetchManHourLogs(params);
+        setLogs(data.data || []);
+      } catch (err) {
+        console.error("Failed to load logs", err);
+      } finally {
+        setIsLoadingLogs(false);
+      }
+    }
+
+    loadLogs();
+  }, [selectedEmployee, dateRange]);
 
   const employee = employees.find(e => e._id === selectedEmployee);
   
-  // Data Filtering
-  const eManHours = manHours.filter(mh => {
-    if (mh.employeeId !== selectedEmployee) return false;
-    if (dateRange?.from && new Date(mh.date) < dateRange.from) return false;
-    if (dateRange?.to && new Date(mh.date) > dateRange.to) return false;
-    return true;
-  });
-
-  const eLeaves = leaves.filter(l => l.employeeId === selectedEmployee);
+  // Data Filtering for Leaves (no backend API yet, defaulting to empty)
+  const eLeaves: any[] = []; 
 
   // Summaries
-  const totalHours = eManHours.reduce((sum, mh) => sum + mh.hours, 0);
-  const uniqueProjects = new Set(eManHours.map(mh => mh.projectId)).size;
-  const leaveDays = eLeaves.reduce((sum, l) => sum + (differenceInDays(new Date(l.endDate), new Date(l.startDate)) + 1), 0);
-
+  const totalHours = logs.reduce((sum, log) => sum + (log.hours || 0), 0);
+  
   // Project Breakdown
-  const projectBreakdown = Array.from(new Set(eManHours.map(mh => mh.projectId))).map(pid => {
-    const p = projects.find(proj => proj._id === pid);
-    const pEntries = eManHours.filter(mh => mh.projectId === pid);
-    const pHours = pEntries.reduce((sum, mh) => sum + mh.hours, 0);
-    const lastDate = [...pEntries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]?.date;
+  const projectMap = new Map<string, any>();
+  logs.forEach(log => {
+    const isProject = !!log.projectId;
+    const id = isProject ? log.projectId._id : (log.activityId ? log.activityId._id : 'unknown');
+    const name = isProject ? log.projectId.projectName : (log.activityId ? log.activityId.name : 'Unknown');
     
-    return {
-      projectName: p?.name || 'Unknown',
-      hours: pHours,
-      entries: pEntries.length,
-      lastDate
-    };
-  }).sort((a, b) => b.hours - a.hours);
+    if (!projectMap.has(id)) {
+      projectMap.set(id, { projectName: name, hours: 0, entries: 0, lastDate: log.date });
+    }
+    
+    const p = projectMap.get(id);
+    p.hours += (log.hours || 0);
+    p.entries += 1;
+    if (new Date(log.date) > new Date(p.lastDate)) {
+      p.lastDate = log.date;
+    }
+  });
+
+  const projectBreakdown = Array.from(projectMap.values()).sort((a, b) => b.hours - a.hours);
+  const uniqueProjects = projectBreakdown.length;
+  const leaveDays = eLeaves.reduce((sum, l) => sum + (differenceInDays(new Date(l.endDate), new Date(l.startDate)) + 1), 0);
 
   const handleExport = () => {
     if (!employee) return;
@@ -58,11 +104,19 @@ export function ReportByEmployeePage() {
       Project: pb.projectName,
       'Total Hours': pb.hours,
       Entries: pb.entries,
-      'Last Date': pb.lastDate
+      'Last Date': pb.lastDate ? format(new Date(pb.lastDate), 'dd MMM yyyy') : '-'
     }));
 
     exportToExcel(exportData, `Employee_Report_${employee.name.replace(/\s+/g, '_')}`);
   };
+
+  if (isLoadingEmployees) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -130,7 +184,8 @@ export function ReportByEmployeePage() {
       {employee && (
         <>
           <div className="grid gap-4 md:grid-cols-3">
-            <Card className="border-blue-100 shadow-sm">
+            <Card className="border-blue-100 shadow-sm relative overflow-hidden">
+              {isLoadingLogs && <div className="absolute inset-0 bg-white/50 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-blue-600" /></div>}
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-slate-900">Total Hours</CardTitle>
                 <Clock className="h-5 w-5 text-blue-500" />
@@ -139,9 +194,10 @@ export function ReportByEmployeePage() {
                 <div className="text-2xl font-bold text-blue-700">{totalHours}h</div>
               </CardContent>
             </Card>
-            <Card className="border-blue-100 shadow-sm">
+            <Card className="border-blue-100 shadow-sm relative overflow-hidden">
+              {isLoadingLogs && <div className="absolute inset-0 bg-white/50 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-blue-600" /></div>}
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-slate-900">Projects Involved</CardTitle>
+                <CardTitle className="text-sm font-medium text-slate-900">Projects/Activities Involved</CardTitle>
                 <Briefcase className="h-5 w-5 text-blue-500" />
               </CardHeader>
               <CardContent>
@@ -222,7 +278,8 @@ export function ReportByEmployeePage() {
               </CardContent>
             </Card>
 
-            <Card className="border-blue-100 shadow-sm">
+            <Card className="border-blue-100 shadow-sm relative overflow-hidden">
+              {isLoadingLogs && <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10"><Loader2 className="h-6 w-6 animate-spin text-blue-600" /></div>}
               <CardHeader>
                 <CardTitle className="text-slate-900">Project Breakdown</CardTitle>
               </CardHeader>
@@ -238,13 +295,13 @@ export function ReportByEmployeePage() {
                           </div>
                           <div className="flex justify-between items-center text-sm pt-2 border-t border-slate-50 mt-1">
                             <span className="text-slate-500">Entries: {pb.entries}</span>
-                            <span className="text-slate-500">Last: {pb.lastDate}</span>
+                            <span className="text-slate-500">Last: {pb.lastDate ? format(new Date(pb.lastDate), 'dd MMM yyyy') : '-'}</span>
                           </div>
                         </div>
                       ))}
                       <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex justify-between items-center font-bold text-slate-900 mt-2">
                         <span>Grand Total</span>
-                        <span>{totalHours}h ({eManHours.length} entries)</span>
+                        <span>{totalHours}h ({logs.length} entries)</span>
                       </div>
                     </>
                   ) : (
@@ -255,7 +312,7 @@ export function ReportByEmployeePage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Project</TableHead>
+                        <TableHead>Project / Activity</TableHead>
                         <TableHead className="text-right">Total Hours</TableHead>
                         <TableHead className="text-right">Entries</TableHead>
                         <TableHead className="text-right">Last Date</TableHead>
@@ -269,13 +326,13 @@ export function ReportByEmployeePage() {
                               <TableCell className="font-medium">{pb.projectName}</TableCell>
                               <TableCell className="text-right font-semibold">{pb.hours}h</TableCell>
                               <TableCell className="text-right text-muted-foreground">{pb.entries}</TableCell>
-                              <TableCell className="text-right text-muted-foreground">{pb.lastDate}</TableCell>
+                              <TableCell className="text-right text-muted-foreground">{pb.lastDate ? format(new Date(pb.lastDate), 'dd MMM yyyy') : '-'}</TableCell>
                             </TableRow>
                           ))}
                           <TableRow className="bg-blue-50 font-bold text-slate-900 hover:bg-blue-50">
                             <TableCell>Grand Total</TableCell>
                             <TableCell className="text-right">{totalHours}h</TableCell>
-                            <TableCell className="text-right">{eManHours.length}</TableCell>
+                            <TableCell className="text-right">{logs.length}</TableCell>
                             <TableCell></TableCell>
                           </TableRow>
                         </>
