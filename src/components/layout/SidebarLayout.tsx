@@ -1,7 +1,9 @@
 import { NavLink, Outlet } from 'react-router';
-import { LayoutDashboard, Clock, Briefcase, UserCircle, FileText, LogOut, Settings } from 'lucide-react';
+import { LayoutDashboard, Clock, Briefcase, UserCircle, FileText, LogOut, Settings, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { useState } from 'react';
 
 import { useAuth } from '@/features/auth/hooks/useAuth';
 
@@ -61,7 +63,8 @@ const NavLinks = ({ onClick }: { onClick?: () => void }) => {
 };
 
 export function SidebarLayout() {
-  const { logout, isAdmin } = useAuth();
+  const { logout } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
@@ -91,9 +94,42 @@ export function SidebarLayout() {
       <main className="flex flex-1 flex-col overflow-hidden relative">
         {/* Mobile Header */}
         <header className="flex h-16 shrink-0 items-center justify-between border-b bg-white px-4 md:hidden shadow-sm z-10">
-          <div className="flex items-center">
-            <Clock className="mr-2 h-6 w-6 text-brand-primary" />
-            <span className="text-lg font-bold text-[#061239]">ManHour</span>
+          <div className="flex items-center gap-3">
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-slate-500 hover:text-slate-700">
+                  <Menu className="h-6 w-6" />
+                  <span className="sr-only">Open menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-[280px] sm:w-[350px] p-0 bg-[#061239] text-slate-300 border-r-slate-800">
+                <SheetHeader className="h-16 border-b border-white/10 px-6 flex flex-row items-center justify-start text-left">
+                  <Clock className="mr-2 h-6 w-6 text-brand-primary" />
+                  <SheetTitle className="text-xl font-bold text-white m-0 pt-0">ManHour Tracker</SheetTitle>
+                </SheetHeader>
+                <div className="flex flex-col h-[calc(100vh-4rem)]">
+                  <div className="flex-1 overflow-y-auto py-4 px-3">
+                    <NavLinks onClick={() => setMobileMenuOpen(false)} />
+                  </div>
+                  <div className="border-t border-white/10 p-4">
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        logout();
+                      }}
+                      className="flex w-full items-center px-4 py-3 text-sm font-medium rounded-md text-slate-300 hover:bg-white/10 hover:text-white transition-all duration-200 group"
+                    >
+                      <LogOut className="mr-3 h-5 w-5 text-slate-400 group-hover:text-white transition-colors" />
+                      Logout
+                    </button>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+            
+            <div className="flex items-center">
+              <span className="text-lg font-bold text-[#061239]">ManHour</span>
+            </div>
           </div>
           <Button variant="ghost" size="icon" onClick={logout} className="text-slate-500 hover:text-slate-700">
             <LogOut className="h-5 w-5" />
@@ -102,36 +138,11 @@ export function SidebarLayout() {
         </header>
 
         {/* Page Content */}
-        {/* Add padding-bottom on mobile to account for the fixed bottom nav */}
-        <div className="flex-1 overflow-y-auto p-4 pb-20 md:p-8 md:pb-8">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8">
           <Outlet />
         </div>
-
-        {/* Mobile Bottom Navigation */}
-        <nav className="md:hidden absolute bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around items-center h-16 z-50">
-          {navItems.filter(item => !item.adminOnly || isAdmin).map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                cn(
-                  "flex flex-col items-center justify-center w-full h-full px-1 transition-colors",
-                  isActive ? "text-brand-primary" : "text-slate-500 hover:text-slate-900"
-                )
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <item.icon className={cn("h-5 w-5 mb-1", isActive ? "text-brand-primary" : "text-slate-500")} />
-                  <span className="text-[10px] font-medium truncate w-full text-center">
-                    {item.label.replace('Report: ', '')}
-                  </span>
-                </>
-              )}
-            </NavLink>
-          ))}
-        </nav>
       </main>
     </div>
   );
 }
+
