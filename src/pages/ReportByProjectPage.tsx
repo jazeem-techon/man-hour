@@ -135,7 +135,7 @@ export function ReportByProjectPage() {
                 <Clock className="h-5 w-5 text-blue-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-blue-700">{totalHours}h</div>
+                <div className="text-2xl font-bold text-blue-700">{totalHours} hrs</div>
               </CardContent>
             </Card>
             <Card className="border-blue-100 shadow-sm">
@@ -172,7 +172,7 @@ export function ReportByProjectPage() {
                       <div key={eb.employeeName} className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col gap-2">
                         <div className="flex justify-between items-start">
                           <div className="font-medium text-slate-800">{eb.employeeName}</div>
-                          <div className="font-bold text-blue-700">{eb.hours}h</div>
+                          <div className="font-bold text-blue-700">{eb.hours} hrs</div>
                         </div>
                         <div className="text-sm text-muted-foreground">{eb.department}</div>
                         <div className="flex justify-between items-center text-sm pt-2 border-t border-slate-50">
@@ -183,7 +183,7 @@ export function ReportByProjectPage() {
                     ))}
                     <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex justify-between items-center font-bold text-slate-900 mt-2">
                       <span>Grand Total</span>
-                      <span>{totalHours}h ({pManHours.length} entries)</span>
+                      <span>{totalHours} hrs ({pManHours.length} entries)</span>
                     </div>
                   </>
                 ) : (
@@ -208,14 +208,14 @@ export function ReportByProjectPage() {
                           <TableRow key={eb.employeeName}>
                             <TableCell className="font-medium">{eb.employeeName}</TableCell>
                             <TableCell className="text-muted-foreground">{eb.department}</TableCell>
-                            <TableCell className="text-right font-semibold">{eb.hours}h</TableCell>
+                            <TableCell className="text-right font-semibold">{eb.hours} hrs</TableCell>
                             <TableCell className="text-right text-muted-foreground">{eb.entries}</TableCell>
                             <TableCell className="text-right text-muted-foreground">{eb.lastDate}</TableCell>
                           </TableRow>
                         ))}
                         <TableRow className="bg-blue-50 font-bold text-slate-900 hover:bg-blue-50">
                           <TableCell colSpan={2}>Grand Total</TableCell>
-                          <TableCell className="text-right">{totalHours}h</TableCell>
+                          <TableCell className="text-right">{totalHours} hrs</TableCell>
                           <TableCell className="text-right">{pManHours.length}</TableCell>
                           <TableCell></TableCell>
                         </TableRow>

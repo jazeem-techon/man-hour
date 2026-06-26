@@ -240,7 +240,7 @@ export function ProjectDetailsPage() {
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                     <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} />
                     <YAxis
-                      tickFormatter={(val) => chartMetric === 'cost' ? formatCurrency(val) : `${val}h`}
+                      tickFormatter={(val) => chartMetric === 'cost' ? formatCurrency(val) : `${val} hrs`}
                       axisLine={false} tickLine={false} tick={{ fill: '#64748b' }}
                     />
                     <Tooltip
@@ -322,7 +322,7 @@ export function ProjectDetailsPage() {
                   <div key={emp.employeeId || idx} className="bg-white p-3 rounded-lg border border-slate-100 shadow-sm flex justify-between items-center">
                     <div className="font-medium text-slate-800">{emp.employeeName}</div>
                     <div className="text-right">
-                      <div className="font-semibold text-slate-900">{formatNumber(emp.hours)}h</div>
+                      <div className="font-semibold text-slate-900">{formatNumber(emp.hours)} hrs</div>
                       <div className="text-sm text-slate-500">{formatCurrency(emp.cost)}</div>
                     </div>
                   </div>
@@ -341,7 +341,7 @@ export function ProjectDetailsPage() {
                     {employeeBreakdown.map((emp: any, idx: number) => (
                       <TableRow key={emp.employeeId || idx}>
                         <TableCell className="font-medium">{emp.employeeName}</TableCell>
-                        <TableCell className="text-right">{formatNumber(emp.hours)}h</TableCell>
+                        <TableCell className="text-right">{formatNumber(emp.hours)} hrs</TableCell>
                         <TableCell className="text-right">{formatCurrency(emp.cost)}</TableCell>
                       </TableRow>
                     ))}

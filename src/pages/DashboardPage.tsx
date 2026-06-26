@@ -388,7 +388,7 @@ function AdminDashboard({ data }: { data: any }) {
                           <div className="text-xs font-medium text-slate-500">{formatCurrency(emp.totalCost || 0)}</div>
                         </div>
                       </div>
-                      <div className="text-right font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">{fmt(emp.totalHours)}h</div>
+                      <div className="text-right font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">{fmt(emp.totalHours)} hrs</div>
                     </div>
                   ))}
                 </div>
@@ -410,7 +410,7 @@ function AdminDashboard({ data }: { data: any }) {
                             </div>
                             <span className="text-slate-700 group-hover:text-brand-secondary transition-colors">{emp.employeeName || 'Unknown'}</span>
                           </TableCell>
-                          <TableCell className="text-right font-bold text-slate-700">{fmt(emp.totalHours)}h</TableCell>
+                          <TableCell className="text-right font-bold text-slate-700">{fmt(emp.totalHours)} hrs</TableCell>
                           <TableCell className="text-right text-sm text-slate-500 font-medium">{formatCurrency(emp.totalCost || 0)}</TableCell>
                         </TableRow>
                       ))}
@@ -465,7 +465,7 @@ function AdminDashboard({ data }: { data: any }) {
                         </div>
                         <div className="flex flex-col text-right">
                           <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Hours</span>
-                          <span className="text-sm font-bold text-blue-600">{fmt(f.loggedHours)}h</span>
+                          <span className="text-sm font-bold text-blue-600">{fmt(f.loggedHours)} hrs</span>
                         </div>
                       </div>
                     </div>
@@ -504,7 +504,7 @@ function AdminDashboard({ data }: { data: any }) {
                               {status}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-right font-bold text-slate-700">{fmt(f.loggedHours)}h</TableCell>
+                          <TableCell className="text-right font-bold text-slate-700">{fmt(f.loggedHours)} hrs</TableCell>
                           <TableCell className="text-right text-slate-500 font-medium">{formatCurrency(f.totalCost || 0)}</TableCell>
                         </TableRow>
                       );
@@ -720,7 +720,7 @@ function SalespersonDashboard({ data }: { data: any }) {
                           </div>
                           <div className="flex flex-col text-right">
                             <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Hours</span>
-                            <span className="text-sm font-bold text-blue-600">{(f.loggedHours || 0).toLocaleString()}h</span>
+                            <span className="text-sm font-bold text-blue-600">{(f.loggedHours || 0).toLocaleString()} hrs</span>
                           </div>
                         </div>
                       </div>
@@ -748,7 +748,7 @@ function SalespersonDashboard({ data }: { data: any }) {
                               <p className="text-xs text-slate-500 mt-1 truncate max-w-[150px]" title={p.customerName}>{p.customerName || ''}</p>
                             </TableCell>
                             <TableCell className="text-right font-bold text-slate-700">
-                              {(f.loggedHours || 0).toLocaleString()}h
+                              {(f.loggedHours || 0).toLocaleString()} hrs
                             </TableCell>
                             <TableCell className="text-right text-sm text-slate-500 font-medium">
                               {formatCurrency(f.totalCost || 0)}

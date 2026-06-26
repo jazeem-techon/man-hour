@@ -58,7 +58,7 @@ export function LogsTable() {
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 font-bold">
-                      {log.hours}h
+                      {log.hours} hrs
                     </Badge>
                     <span className="text-xs font-semibold text-slate-600">
                       {formatCurrency(log.hours * (log.employeeId?.cost || 0))}
@@ -138,7 +138,7 @@ export function LogsTable() {
                     </TableCell>
                     <TableCell className="text-right">
                       <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 font-bold">
-                        {log.hours}h
+                        {log.hours} hrs
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right font-semibold text-slate-600">

@@ -191,7 +191,7 @@ export function ReportByEmployeePage() {
                 <Clock className="h-5 w-5 text-blue-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-blue-700">{totalHours}h</div>
+                <div className="text-2xl font-bold text-blue-700">{totalHours} hrs</div>
               </CardContent>
             </Card>
             <Card className="border-blue-100 shadow-sm relative overflow-hidden">
@@ -291,7 +291,7 @@ export function ReportByEmployeePage() {
                         <div key={pb.projectName} className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col gap-2">
                           <div className="flex justify-between items-start">
                             <div className="font-medium text-slate-800">{pb.projectName}</div>
-                            <div className="font-bold text-blue-700">{pb.hours}h</div>
+                            <div className="font-bold text-blue-700">{pb.hours} hrs</div>
                           </div>
                           <div className="flex justify-between items-center text-sm pt-2 border-t border-slate-50 mt-1">
                             <span className="text-slate-500">Entries: {pb.entries}</span>
@@ -301,7 +301,7 @@ export function ReportByEmployeePage() {
                       ))}
                       <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex justify-between items-center font-bold text-slate-900 mt-2">
                         <span>Grand Total</span>
-                        <span>{totalHours}h ({logs.length} entries)</span>
+                        <span>{totalHours} hrs ({logs.length} entries)</span>
                       </div>
                     </>
                   ) : (
@@ -324,14 +324,14 @@ export function ReportByEmployeePage() {
                           {projectBreakdown.map(pb => (
                             <TableRow key={pb.projectName}>
                               <TableCell className="font-medium">{pb.projectName}</TableCell>
-                              <TableCell className="text-right font-semibold">{pb.hours}h</TableCell>
+                              <TableCell className="text-right font-semibold">{pb.hours} hrs</TableCell>
                               <TableCell className="text-right text-muted-foreground">{pb.entries}</TableCell>
                               <TableCell className="text-right text-muted-foreground">{pb.lastDate ? format(new Date(pb.lastDate), 'dd MMM yyyy') : '-'}</TableCell>
                             </TableRow>
                           ))}
                           <TableRow className="bg-blue-50 font-bold text-slate-900 hover:bg-blue-50">
                             <TableCell>Grand Total</TableCell>
-                            <TableCell className="text-right">{totalHours}h</TableCell>
+                            <TableCell className="text-right">{totalHours} hrs</TableCell>
                             <TableCell className="text-right">{logs.length}</TableCell>
                             <TableCell></TableCell>
                           </TableRow>
