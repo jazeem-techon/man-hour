@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router';
-import { LayoutDashboard, Clock, Briefcase, UserCircle, FileText, LogOut } from 'lucide-react';
+import { LayoutDashboard, Clock, Briefcase, UserCircle, FileText, LogOut, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -21,6 +21,7 @@ const navItems: NavItem[] = [
   // { to: '/leaves', label: 'Leaves', icon: CalendarIcon, adminOnly: true },
   { to: '/reports/by-salesperson', label: 'Report: By Salesperson', icon: FileText, adminOnly: true },
   { to: '/reports/by-employee', label: 'Report: By Employee', icon: FileText, adminOnly: true },
+  { to: '/settings', label: 'Settings', icon: Settings, adminOnly: true },
 ];
 
 const NavLinks = ({ onClick }: { onClick?: () => void }) => {

@@ -11,6 +11,7 @@ import { ReportByProjectPage } from './pages/ReportByProjectPage';
 import { SalespersonReportPage } from './pages/SalespersonReportPage';
 import { ProjectDetailsPage } from './pages/ProjectDetailsPage';
 import { TimesheetPage } from './pages/TimesheetPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { Toaster } from 'sonner';
 import { useAuth } from './features/auth/hooks/useAuth';
 
@@ -48,6 +49,7 @@ export default function App() {
           <Route path="/reports/by-employee" element={<AdminRoute><ReportByEmployeePage /></AdminRoute>} />
           <Route path="/reports/by-salesperson" element={<SalespersonReportPage />} />
           <Route path="/reports/by-project" element={<ReportByProjectPage />} />
+          <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
         </Route>
       </Routes>
       <Toaster position="top-right" richColors />

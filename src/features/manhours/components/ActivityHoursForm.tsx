@@ -17,17 +17,15 @@ import { format } from 'date-fns';
 import { CalendarIcon, AlertTriangle, Check, ChevronDown, Search, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { submitManHourLog, createActivity } from '@/api/manhourTrackerApi';
+import { submitManHourLog, createActivity, sendWhatsAppMessage } from '@/api/manhourTrackerApi';
 
 const formSchema = z.object({
   activityId: z.string().min(1, 'Please select an activity'),
   employeeIds: z.array(z.string()).min(1, 'Please select at least one employee'),
   hours: z.number().min(0.5, 'Must be at least 0.5 hours').step(0.5),
-  dateRange: z.object({
-    from: z.date(),
-    to: z.date().optional(),
-  }),
+  dates: z.array(z.date()).min(1, 'Please select at least one date'),
   note: z.string(),
+  sendToWhatsAppGroup: z.boolean(),
 });
 
 interface ActivityHoursFormProps {
@@ -46,10 +44,9 @@ export function ActivityHoursForm({ activities, employees, onActivityCreated }: 
       activityId: '',
       employeeIds: [],
       hours: 8,
-      dateRange: {
-        from: new Date()
-      },
+      dates: [new Date()],
       note: '',
+      sendToWhatsAppGroup: false,
     },
   });
 
@@ -81,34 +78,49 @@ export function ActivityHoursForm({ activities, employees, onActivityCreated }: 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     try {
-      const fromDate = values.dateRange.from;
-      const toDate = values.dateRange.to || fromDate;
-      const daysToLog: Date[] = [];
-      let currentDate = new Date(fromDate);
-      while (currentDate <= toDate) {
-        daysToLog.push(new Date(currentDate));
-        currentDate.setDate(currentDate.getDate() + 1);
-      }
-
       const promises: Promise<any>[] = [];
       values.employeeIds.forEach(employeeId => {
-        daysToLog.forEach(date => {
+        values.dates.forEach(date => {
           promises.push(
             submitManHourLog({
               activityId: values.activityId,
               employeeId: employeeId,
               hours: values.hours,
               date: format(date, 'yyyy-MM-dd'),
-              note: values.note
+              note: values.note,
             })
           );
         });
       });
-      
+
       await Promise.all(promises);
-      
-      toast.success(`Successfully logged hours for ${values.employeeIds.length} employee(s) across ${daysToLog.length} day(s)!`);
-      form.reset({ hours: 8, dateRange: { from: new Date() }, note: '', activityId: '', employeeIds: [] });
+
+      if (values.sendToWhatsAppGroup) {
+        for (const date of values.dates) {
+          try {
+            const dateStr = format(date, 'dd/MM/yyyy');
+            const activityName = activities.find(a => a._id === values.activityId)?.name || 'Unknown Activity';
+
+            let empListStr = '';
+            values.employeeIds.forEach((id, index) => {
+              const emp = employees.find(e => e._id === id);
+              empListStr += `${index + 1}.${emp?.name?.toUpperCase() || 'UNKNOWN'}\n`;
+            });
+
+            const message = `${dateStr} SCHEDULED FOR\n\n${activityName}\n\n${empListStr}`;
+
+            await sendWhatsAppMessage({
+              message: message.trim()
+            });
+          } catch (waErr) {
+            console.error("Failed to send WhatsApp message for date", date, waErr);
+            toast.error("Logs saved, but failed to send WhatsApp message for some dates.");
+          }
+        }
+      }
+
+      toast.success(`Successfully logged hours for ${values.employeeIds.length} employee(s) across ${values.dates.length} date(s)!`);
+      form.reset({ hours: 8, dates: [new Date()], note: '', activityId: '', employeeIds: [], sendToWhatsAppGroup: false });
     } catch (error: any) {
       console.error('Failed to log hours:', error);
       toast.error(error.response?.data?.message || 'Failed to log hours');
@@ -123,7 +135,7 @@ export function ActivityHoursForm({ activities, employees, onActivityCreated }: 
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-md flex items-start shadow-sm">
           <AlertTriangle className="h-5 w-5 text-yellow-600 mr-3 mt-0.5 shrink-0" />
           <div className="text-sm text-yellow-800">
-            <strong>Notice:</strong> The following employees are currently on leave and have been excluded from the dropdown: 
+            <strong>Notice:</strong> The following employees are currently on leave and have been excluded from the dropdown:
             <span className="font-semibold ml-1">
               {employeesOnLeave.map(e => e.name).join(', ')}
             </span>
@@ -139,7 +151,7 @@ export function ActivityHoursForm({ activities, employees, onActivityCreated }: 
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control as any}
@@ -150,10 +162,10 @@ export function ActivityHoursForm({ activities, employees, onActivityCreated }: 
                       <FormControl>
                         {showNewActivityInput ? (
                           <div className="flex items-center gap-2">
-                            <Input 
-                              placeholder="Activity name..." 
-                              value={newActivityName} 
-                              onChange={(e) => setNewActivityName(e.target.value)} 
+                            <Input
+                              placeholder="Activity name..."
+                              value={newActivityName}
+                              onChange={(e) => setNewActivityName(e.target.value)}
                               disabled={isCreatingActivity}
                             />
                             <Button type="button" onClick={handleCreateActivity} disabled={isCreatingActivity || !newActivityName.trim()}>
@@ -205,9 +217,9 @@ export function ActivityHoursForm({ activities, employees, onActivityCreated }: 
                               <div className="flex-1 truncate text-left pr-2">
                                 {field.value?.length > 0
                                   ? activeAvailableEmployees
-                                      .filter(e => field.value.includes(e._id))
-                                      .map(e => e.name)
-                                      .join(', ')
+                                    .filter(e => field.value.includes(e._id))
+                                    .map(e => e.name)
+                                    .join(', ')
                                   : "Select employees"}
                               </div>
                               <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
@@ -251,44 +263,44 @@ export function ActivityHoursForm({ activities, employees, onActivityCreated }: 
                             {employees
                               .filter((e) => e.name.toLowerCase().includes(employeeSearch.toLowerCase()))
                               .map((e) => {
-                              const isSelected = field.value?.includes(e._id);
-                              const isDisabled = e.isOnLeave;
+                                const isSelected = field.value?.includes(e._id);
+                                const isDisabled = e.isOnLeave;
 
-                              return (
-                                <div
-                                  key={e._id}
-                                  className={cn(
-                                    "flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm transition-colors",
-                                    isDisabled ? "opacity-60 cursor-not-allowed bg-slate-50" : "cursor-pointer hover:bg-slate-100",
-                                    isSelected && !isDisabled ? "bg-blue-50 text-blue-900 font-medium" : ""
-                                  )}
-                                  onClick={() => {
-                                    if (isDisabled) return;
-                                    const current = field.value || [];
-                                    const updated = isSelected
-                                      ? current.filter((id: string) => id !== e._id)
-                                      : [...current, e._id];
-                                    field.onChange(updated);
-                                  }}
-                                >
-                                  <div className={cn(
-                                    "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border",
-                                    isDisabled ? "border-slate-300" : "border-primary",
-                                    isSelected && !isDisabled ? "bg-primary text-primary-foreground" : "opacity-50"
-                                  )}>
-                                    {isSelected && <Check className="h-3 w-3" />}
-                                  </div>
-                                  <div className="flex flex-col">
-                                    <span className={cn(isDisabled && "text-slate-500")}>{e.name}</span>
-                                    {isDisabled && (
-                                      <span className="text-[10px] text-red-500 font-medium leading-none mt-0.5">
-                                        (On Leave)
-                                      </span>
+                                return (
+                                  <div
+                                    key={e._id}
+                                    className={cn(
+                                      "flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm transition-colors",
+                                      isDisabled ? "opacity-60 cursor-not-allowed bg-slate-50" : "cursor-pointer hover:bg-slate-100",
+                                      isSelected && !isDisabled ? "bg-blue-50 text-blue-900 font-medium" : ""
                                     )}
+                                    onClick={() => {
+                                      if (isDisabled) return;
+                                      const current = field.value || [];
+                                      const updated = isSelected
+                                        ? current.filter((id: string) => id !== e._id)
+                                        : [...current, e._id];
+                                      field.onChange(updated);
+                                    }}
+                                  >
+                                    <div className={cn(
+                                      "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border",
+                                      isDisabled ? "border-slate-300" : "border-primary",
+                                      isSelected && !isDisabled ? "bg-primary text-primary-foreground" : "opacity-50"
+                                    )}>
+                                      {isSelected && <Check className="h-3 w-3" />}
+                                    </div>
+                                    <div className="flex flex-col">
+                                      <span className={cn(isDisabled && "text-slate-500")}>{e.name}</span>
+                                      {isDisabled && (
+                                        <span className="text-[10px] text-red-500 font-medium leading-none mt-0.5">
+                                          (On Leave)
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                              );
-                            })}
+                                );
+                              })}
                             {employees.filter((e) => e.name.toLowerCase().includes(employeeSearch.toLowerCase())).length === 0 && (
                               <div className="py-4 text-center text-sm text-slate-500">No employees found.</div>
                             )}
@@ -316,10 +328,10 @@ export function ActivityHoursForm({ activities, employees, onActivityCreated }: 
 
                 <FormField
                   control={form.control as any}
-                  name="dateRange"
+                  name="dates"
                   render={({ field }) => (
                     <FormItem className="flex flex-col pt-2.5">
-                      <FormLabel className="mb-1">Date</FormLabel>
+                      <FormLabel className="mb-1">Dates</FormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
@@ -327,20 +339,13 @@ export function ActivityHoursForm({ activities, employees, onActivityCreated }: 
                               variant={"outline"}
                               className={cn(
                                 "w-full pl-3 text-left font-normal",
-                                !field.value?.from && "text-muted-foreground"
+                                !field.value?.length && "text-muted-foreground"
                               )}
                             >
-                              {field.value?.from ? (
-                                field.value.to ? (
-                                  <>
-                                    {format(field.value.from, "LLL dd, y")} -{" "}
-                                    {format(field.value.to, "LLL dd, y")}
-                                  </>
-                                ) : (
-                                  format(field.value.from, "LLL dd, y")
-                                )
+                              {field.value?.length > 0 ? (
+                                <span>{field.value.length} date(s) selected</span>
                               ) : (
-                                <span>Pick a date</span>
+                                <span>Pick dates</span>
                               )}
                               <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                             </Button>
@@ -348,8 +353,7 @@ export function ActivityHoursForm({ activities, employees, onActivityCreated }: 
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
                           <Calendar
-                            mode="range"
-                            defaultMonth={field.value?.from}
+                            mode="multiple"
                             selected={field.value}
                             onSelect={field.onChange}
                             numberOfMonths={2}
@@ -378,6 +382,31 @@ export function ActivityHoursForm({ activities, employees, onActivityCreated }: 
                       />
                     </FormControl>
                     <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control as any}
+                name="sendToWhatsAppGroup"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm bg-slate-50">
+                    <FormControl>
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        checked={field.value}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel className="font-medium text-slate-800">
+                        Send message to WhatsApp group
+                      </FormLabel>
+                      <CardDescription className="text-xs">
+                        This will dispatch a message to the configured WhatsApp group detailing this log entry.
+                      </CardDescription>
+                    </div>
                   </FormItem>
                 )}
               />

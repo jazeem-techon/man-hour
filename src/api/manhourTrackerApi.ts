@@ -75,6 +75,7 @@ export const submitManHourLog = async (data: {
   hours: number;
   date: string;
   note: string;
+  sendToWhatsAppGroup?: boolean;
 }) => {
   const response = await api.post('/manhour-tracker/log', data);
   return response.data;
@@ -127,5 +128,21 @@ export const fetchBusyEmployees = async (startDate: string, endDate?: string) =>
     url += `&endDate=${endDate}`;
   }
   const response = await api.get(url);
+  return response.data;
+};
+
+// ─── WhatsApp ────────────────────────────────────────────────────
+export const fetchWhatsAppStatus = async () => {
+  const response = await api.get('/whatsapp/status');
+  return response.data;
+};
+
+export const logoutWhatsApp = async () => {
+  const response = await api.post('/whatsapp/logout');
+  return response.data;
+};
+
+export const sendWhatsAppMessage = async (data: { groupName?: string; message: string }) => {
+  const response = await api.post('/whatsapp/send', data);
   return response.data;
 };

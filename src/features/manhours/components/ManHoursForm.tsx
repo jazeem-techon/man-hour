@@ -16,18 +16,17 @@ import { format } from 'date-fns';
 import { CalendarIcon, AlertTriangle, Check, ChevronDown, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { submitManHourLog, fetchBusyEmployees } from '@/api/manhourTrackerApi';
+import { submitManHourLog, fetchBusyEmployees, sendWhatsAppMessage } from '@/api/manhourTrackerApi';
 
 const formSchema = z.object({
   projectId: z.string().min(1, 'Please select a project'),
   employeeIds: z.array(z.string()).min(1, 'Please select at least one employee'),
   task: z.string().min(1, 'Please select a task'),
   hours: z.number().min(0.5, 'Must be at least 0.5 hours').step(0.5),
-  dateRange: z.object({
-    from: z.date(),
-    to: z.date().optional(),
-  }),
+  date: z.date(),
+  time: z.string().optional(),
   note: z.string(),
+  sendToWhatsAppGroup: z.boolean(),
 });
 
 interface ManHoursFormProps {
@@ -45,10 +44,10 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
       employeeIds: [],
       task: '',
       hours: 8,
-      dateRange: {
-        from: new Date()
-      },
+      date: new Date(),
+      time: format(new Date(), 'HH:mm'),
       note: '',
+      sendToWhatsAppGroup: false,
     },
   });
 
@@ -61,16 +60,15 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
   const [employeeSearch, setEmployeeSearch] = useState("");
   const [busyEmployeeIds, setBusyEmployeeIds] = useState<string[]>([]);
 
-  const dateRange = form.watch('dateRange');
+  const selectedDate = form.watch('date');
 
   // Fetch busy employees when date range changes
   useEffect(() => {
     async function loadBusyEmployees() {
-      if (!dateRange?.from) return;
+      if (!selectedDate) return;
       try {
-        const startStr = format(dateRange.from, 'yyyy-MM-dd');
-        const endStr = dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : startStr;
-        const busyIds = await fetchBusyEmployees(startStr, endStr);
+        const dateStr = format(selectedDate, 'yyyy-MM-dd');
+        const busyIds = await fetchBusyEmployees(dateStr, dateStr);
         setBusyEmployeeIds(busyIds || []);
         
         // Also remove busy employees from currently selected values
@@ -84,42 +82,59 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
       }
     }
     loadBusyEmployees();
-  }, [dateRange?.from, dateRange?.to, form]);
+  }, [selectedDate, form]);
 
   const trulyAvailableEmployees = employees.filter(e => !e.isOnLeave && !busyEmployeeIds.includes(e._id));
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     try {
-      const fromDate = values.dateRange.from;
-      const toDate = values.dateRange.to || fromDate;
-      const daysToLog: Date[] = [];
-      let currentDate = new Date(fromDate);
-      while (currentDate <= toDate) {
-        daysToLog.push(new Date(currentDate));
-        currentDate.setDate(currentDate.getDate() + 1);
+      const promises: Promise<any>[] = [];
+      let dateTimeStr = format(values.date, 'yyyy-MM-dd');
+      if (values.time) {
+        dateTimeStr += `T${values.time}:00`;
       }
 
-      const promises: Promise<any>[] = [];
       values.employeeIds.forEach(employeeId => {
-        daysToLog.forEach(date => {
-          promises.push(
-            submitManHourLog({
-              projectId: values.projectId,
-              employeeId: employeeId,
-              task: values.task,
-              hours: values.hours,
-              date: format(date, 'yyyy-MM-dd'),
-              note: values.note
-            })
-          );
-        });
+        promises.push(
+          submitManHourLog({
+            projectId: values.projectId,
+            employeeId: employeeId,
+            task: values.task,
+            hours: values.hours,
+            date: dateTimeStr,
+            note: values.note,
+          })
+        );
       });
       
       await Promise.all(promises);
+
+      if (values.sendToWhatsAppGroup) {
+        try {
+          const dateStr = format(values.date, 'dd/MM/yyyy');
+          const timeStr = values.time ? format(new Date(`1970-01-01T${values.time}`), 'h:mm a') : '';
+          const projectName = selectedProject?.projectName || selectedProject?.name || 'Unknown Project';
+          
+          let empListStr = '';
+          values.employeeIds.forEach((id, index) => {
+            const emp = employees.find(e => e._id === id);
+            empListStr += `${index + 1}.${emp?.name?.toUpperCase() || 'UNKNOWN'}\n`;
+          });
+
+          const message = `… ${dateStr}_SCHEDUL…\n\n ${projectName}  ${timeStr}\n\n${empListStr}`;
+          
+          await sendWhatsAppMessage({
+            message: message.trim()
+          });
+        } catch (waErr) {
+          console.error("Failed to send WhatsApp message", waErr);
+          toast.error("Logs saved, but failed to send WhatsApp message.");
+        }
+      }
       
-      toast.success(`Successfully logged hours for ${values.employeeIds.length} employee(s) across ${daysToLog.length} day(s)!`);
-      form.reset({ hours: 8, dateRange: { from: new Date() }, note: '', projectId: '', employeeIds: [], task: '' });
+      toast.success(`Successfully logged hours for ${values.employeeIds.length} employee(s)!`);
+      form.reset({ hours: 8, date: new Date(), time: format(new Date(), 'HH:mm'), note: '', projectId: '', employeeIds: [], task: '', sendToWhatsAppGroup: false });
     } catch (error: any) {
       console.error('Failed to log hours:', error);
       toast.error(error.response?.data?.message || 'Failed to log hours');
@@ -326,54 +341,57 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
                   )}
                 />
 
-                <FormField
-                  control={form.control as any}
-                  name="dateRange"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col pt-2.5">
-                      <FormLabel className="mb-1">Date</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant={"outline"}
-                              className={cn(
-                                "w-full pl-3 text-left font-normal",
-                                !field.value?.from && "text-muted-foreground"
-                              )}
-                            >
-                              {field.value?.from ? (
-                                field.value.to ? (
-                                  <>
-                                    {format(field.value.from, "LLL dd, y")} -{" "}
-                                    {format(field.value.to, "LLL dd, y")}
-                                  </>
-                                ) : (
-                                  format(field.value.from, "LLL dd, y")
-                                )
-                              ) : (
-                                <span>Pick a date</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="range"
-                            defaultMonth={field.value?.from}
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            numberOfMonths={2}
-                            disabled={(date) => date < new Date("1900-01-01")}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="flex gap-4 pt-2.5">
+                  <FormField
+                    control={form.control as any}
+                    name="date"
+                    render={({ field }) => (
+                      <FormItem className="flex-1 flex flex-col">
+                        <FormLabel className="mb-1">Date</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant={"outline"}
+                                className={cn(
+                                  "w-full pl-3 text-left font-normal",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                              >
+                                {field.value ? format(field.value, "LLL dd, y") : <span>Pick a date</span>}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              disabled={(date) => date < new Date("1900-01-01")}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control as any}
+                    name="time"
+                    render={({ field }) => (
+                      <FormItem className="flex-1 flex flex-col">
+                        <FormLabel className="mb-1">Time</FormLabel>
+                        <FormControl>
+                          <Input type="time" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
 
               <FormField
@@ -390,6 +408,31 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
                       />
                     </FormControl>
                     <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control as any}
+                name="sendToWhatsAppGroup"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm bg-slate-50">
+                    <FormControl>
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        checked={field.value}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel className="font-medium text-slate-800">
+                        Send message to WhatsApp group
+                      </FormLabel>
+                      <CardDescription className="text-xs">
+                        This will dispatch a message to the configured WhatsApp group detailing this log entry.
+                      </CardDescription>
+                    </div>
                   </FormItem>
                 )}
               />
