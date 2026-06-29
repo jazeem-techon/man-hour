@@ -53,7 +53,7 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
 
   const selectedProjectId = form.watch('projectId');
   const selectedProject = projects.find(p => p._id === selectedProjectId);
-  
+
   const projectTasks = selectedProject?.tasks || [];
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -70,7 +70,7 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
         const dateStr = format(selectedDate, 'yyyy-MM-dd');
         const busyIds = await fetchBusyEmployees(dateStr, dateStr);
         setBusyEmployeeIds(busyIds || []);
-        
+
         // Also remove busy employees from currently selected values
         const currentSelected = form.getValues('employeeIds');
         const validSelected = currentSelected.filter(id => !busyIds.includes(id));
@@ -107,7 +107,7 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
           })
         );
       });
-      
+
       await Promise.all(promises);
 
       if (values.sendToWhatsAppGroup) {
@@ -115,15 +115,15 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
           const dateStr = format(values.date, 'dd/MM/yyyy');
           const timeStr = values.time ? format(new Date(`1970-01-01T${values.time}`), 'h:mm a') : '';
           const projectName = selectedProject?.projectName || selectedProject?.name || 'Unknown Project';
-          
+
           let empListStr = '';
           values.employeeIds.forEach((id, index) => {
             const emp = employees.find(e => e._id === id);
             empListStr += `${index + 1}.${emp?.name?.toUpperCase() || 'UNKNOWN'}\n`;
           });
 
-          const message = `… ${dateStr}_SCHEDUL…\n\n ${projectName}  ${timeStr}\n\n${empListStr}`;
-          
+          const message = `${dateStr} SCHEDULE FOR \n\n${projectName} - ${timeStr}\n\n${empListStr}`;
+
           await sendWhatsAppMessage({
             message: message.trim()
           });
@@ -132,7 +132,7 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
           toast.error("Logs saved, but failed to send WhatsApp message.");
         }
       }
-      
+
       toast.success(`Successfully logged hours for ${values.employeeIds.length} employee(s)!`);
       form.reset({ hours: 8, date: new Date(), time: format(new Date(), 'HH:mm'), note: '', projectId: '', employeeIds: [], task: '', sendToWhatsAppGroup: false });
     } catch (error: any) {
@@ -149,7 +149,7 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-md flex items-start shadow-sm">
           <AlertTriangle className="h-5 w-5 text-yellow-600 mr-3 mt-0.5 shrink-0" />
           <div className="text-sm text-yellow-800">
-            <strong>Notice:</strong> The following employees are currently on leave and have been excluded from the dropdown: 
+            <strong>Notice:</strong> The following employees are currently on leave and have been excluded from the dropdown:
             <span className="font-semibold ml-1">
               {employeesOnLeave.map(e => e.name).join(', ')}
             </span>
@@ -165,7 +165,7 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control as any}
@@ -207,9 +207,9 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
                               <div className="flex-1 truncate text-left pr-2">
                                 {field.value?.length > 0
                                   ? trulyAvailableEmployees
-                                      .filter(e => field.value.includes(e._id))
-                                      .map(e => e.name)
-                                      .join(', ')
+                                    .filter(e => field.value.includes(e._id))
+                                    .map(e => e.name)
+                                    .join(', ')
                                   : "Select employees"}
                               </div>
                               <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
@@ -253,45 +253,45 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
                             {employees
                               .filter((e) => e.name.toLowerCase().includes(employeeSearch.toLowerCase()))
                               .map((e) => {
-                              const isSelected = field.value?.includes(e._id);
-                              const isBusy = busyEmployeeIds.includes(e._id);
-                              const isDisabled = e.isOnLeave || isBusy;
-                              
-                              return (
-                                <div
-                                  key={e._id}
-                                  className={cn(
-                                    "flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm transition-colors",
-                                    isDisabled ? "opacity-60 cursor-not-allowed bg-slate-50" : "cursor-pointer hover:bg-slate-100",
-                                    isSelected && !isDisabled ? "bg-blue-50 text-blue-900 font-medium" : ""
-                                  )}
-                                  onClick={() => {
-                                    if (isDisabled) return;
-                                    const current = field.value || [];
-                                    const updated = isSelected
-                                      ? current.filter((id: string) => id !== e._id)
-                                      : [...current, e._id];
-                                    field.onChange(updated);
-                                  }}
-                                >
-                                  <div className={cn(
-                                    "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border",
-                                    isDisabled ? "border-slate-300" : "border-primary",
-                                    isSelected && !isDisabled ? "bg-primary text-primary-foreground" : "opacity-50"
-                                  )}>
-                                    {isSelected && <Check className="h-3 w-3" />}
-                                  </div>
-                                  <div className="flex flex-col">
-                                    <span className={cn(isDisabled && "text-slate-500")}>{e.name}</span>
-                                    {isDisabled && (
-                                      <span className="text-[10px] text-red-500 font-medium leading-none mt-0.5">
-                                        {e.isOnLeave ? '(On Leave)' : '(On Activity)'}
-                                      </span>
+                                const isSelected = field.value?.includes(e._id);
+                                const isBusy = busyEmployeeIds.includes(e._id);
+                                const isDisabled = e.isOnLeave || isBusy;
+
+                                return (
+                                  <div
+                                    key={e._id}
+                                    className={cn(
+                                      "flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm transition-colors",
+                                      isDisabled ? "opacity-60 cursor-not-allowed bg-slate-50" : "cursor-pointer hover:bg-slate-100",
+                                      isSelected && !isDisabled ? "bg-blue-50 text-blue-900 font-medium" : ""
                                     )}
+                                    onClick={() => {
+                                      if (isDisabled) return;
+                                      const current = field.value || [];
+                                      const updated = isSelected
+                                        ? current.filter((id: string) => id !== e._id)
+                                        : [...current, e._id];
+                                      field.onChange(updated);
+                                    }}
+                                  >
+                                    <div className={cn(
+                                      "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border",
+                                      isDisabled ? "border-slate-300" : "border-primary",
+                                      isSelected && !isDisabled ? "bg-primary text-primary-foreground" : "opacity-50"
+                                    )}>
+                                      {isSelected && <Check className="h-3 w-3" />}
+                                    </div>
+                                    <div className="flex flex-col">
+                                      <span className={cn(isDisabled && "text-slate-500")}>{e.name}</span>
+                                      {isDisabled && (
+                                        <span className="text-[10px] text-red-500 font-medium leading-none mt-0.5">
+                                          {e.isOnLeave ? '(On Leave)' : '(On Activity)'}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                              );
-                            })}
+                                );
+                              })}
                             {employees.filter((e) => e.name.toLowerCase().includes(employeeSearch.toLowerCase())).length === 0 && (
                               <div className="py-4 text-center text-sm text-slate-500">No employees found.</div>
                             )}
