@@ -25,7 +25,6 @@ const formSchema = z.object({
   hours: z.number().min(0.5, 'Must be at least 0.5 hours').step(0.5),
   dates: z.array(z.date()).min(1, 'Please select at least one date'),
   note: z.string(),
-  sendToWhatsAppGroup: z.boolean(),
 });
 
 interface ActivityHoursFormProps {
@@ -46,7 +45,6 @@ export function ActivityHoursForm({ activities, employees, onActivityCreated }: 
       hours: 8,
       dates: [new Date()],
       note: '',
-      sendToWhatsAppGroup: false,
     },
   });
 
@@ -95,32 +93,8 @@ export function ActivityHoursForm({ activities, employees, onActivityCreated }: 
 
       await Promise.all(promises);
 
-      if (values.sendToWhatsAppGroup) {
-        for (const date of values.dates) {
-          try {
-            const dateStr = format(date, 'dd/MM/yyyy');
-            const activityName = activities.find(a => a._id === values.activityId)?.name || 'Unknown Activity';
-
-            let empListStr = '';
-            values.employeeIds.forEach((id, index) => {
-              const emp = employees.find(e => e._id === id);
-              empListStr += `${index + 1}.${emp?.name?.toUpperCase() || 'UNKNOWN'}\n`;
-            });
-
-            const message = `${dateStr} SCHEDULED FOR\n\n${activityName}\n\n${empListStr}`;
-
-            await sendWhatsAppMessage({
-              message: message.trim()
-            });
-          } catch (waErr) {
-            console.error("Failed to send WhatsApp message for date", date, waErr);
-            toast.error("Logs saved, but failed to send WhatsApp message for some dates.");
-          }
-        }
-      }
-
       toast.success(`Successfully logged hours for ${values.employeeIds.length} employee(s) across ${values.dates.length} date(s)!`);
-      form.reset({ hours: 8, dates: [new Date()], note: '', activityId: '', employeeIds: [], sendToWhatsAppGroup: false });
+      form.reset({ hours: 8, dates: [new Date()], note: '', activityId: '', employeeIds: [] });
     } catch (error: any) {
       console.error('Failed to log hours:', error);
       toast.error(error.response?.data?.message || 'Failed to log hours');
@@ -386,30 +360,7 @@ export function ActivityHoursForm({ activities, employees, onActivityCreated }: 
                 )}
               />
 
-              <FormField
-                control={form.control as any}
-                name="sendToWhatsAppGroup"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm bg-slate-50">
-                    <FormControl>
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                        checked={field.value}
-                        onChange={(e) => field.onChange(e.target.checked)}
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel className="font-medium text-slate-800">
-                        Send message to WhatsApp group
-                      </FormLabel>
-                      <CardDescription className="text-xs">
-                        This will dispatch a message to the configured WhatsApp group detailing this log entry.
-                      </CardDescription>
-                    </div>
-                  </FormItem>
-                )}
-              />
+
 
               <Button type="submit" disabled={isSubmitting} className="w-full md:w-auto bg-blue-600 hover:bg-blue-700">
                 {isSubmitting ? 'Logging...' : 'Log Hours'}
