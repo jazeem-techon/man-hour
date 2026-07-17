@@ -17,7 +17,7 @@ import { format } from 'date-fns';
 import { CalendarIcon, AlertTriangle, Check, ChevronDown, Search, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { submitManHourLog, createActivity, sendWhatsAppMessage } from '@/api/manhourTrackerApi';
+import { submitManHourLog, createActivity} from '@/api/manhourTrackerApi';
 
 const formSchema = z.object({
   activityId: z.string().min(1, 'Please select an activity'),
