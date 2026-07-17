@@ -10,7 +10,7 @@ import { Clock } from 'lucide-react';
 
 export function LoginForm() {
   const { login } = useAuth();
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -18,7 +18,7 @@ export function LoginForm() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const loginRes = await api.post('/login', { username, password });
+      const loginRes = await api.post('/login', { email, password });
       const token = loginRes.data?.token || loginRes.data?.access_token || loginRes.data;
       
       if (!token || typeof token !== 'string') {
@@ -56,14 +56,14 @@ export function LoginForm() {
       <form onSubmit={handleLogin}>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="username" className="text-sm font-medium text-slate-700">Username</Label>
+            <Label htmlFor="email" className="text-sm font-medium text-slate-700">Email</Label>
             <Input 
-              id="username" 
-              type="text" 
-              placeholder="Enter your username" 
+              id="email" 
+              type="email" 
+              placeholder="Enter your email" 
               required 
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="border-slate-200 focus-visible:ring-blue-600"
             />
           </div>
