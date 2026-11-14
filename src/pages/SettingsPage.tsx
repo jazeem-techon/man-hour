@@ -49,12 +49,8 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight text-slate-900">Settings</h2>
-        <p className="text-muted-foreground">Manage application settings and integrations.</p>
-      </div>
 
-      <Card className="border-slate-200 shadow-sm">
+      <Card className="border-line">
         <CardHeader className="bg-slate-50 border-b border-slate-100">
           <CardTitle className="flex items-center text-green-700">
             <MessageSquare className="mr-2 h-5 w-5" />

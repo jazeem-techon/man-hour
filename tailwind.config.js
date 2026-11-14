@@ -15,6 +15,8 @@ export default {
 				foreground: 'hsl(var(--foreground))',
 				primary: {
 					DEFAULT: 'hsl(var(--primary))',
+					hover: '#1E40AF',
+					tint: '#EFF6FF',
 					foreground: 'hsl(var(--primary-foreground))'
 				},
 				secondary: {
@@ -42,12 +44,25 @@ export default {
 					foreground: 'hsl(var(--card-foreground))'
 				},
 				brand: {
-					primary: '#303ceeff',
-					secondary: '#3DB7E8',
-					accent: '#2E5FBF'
-				}
+					primary: '#1D4ED8',
+					secondary: '#3B82F6',
+					accent: '#1E40AF'
+				},
+				app: '#F3F4F6',
+				surface: '#F9FAFB',
+				line: '#E5E7EB',
+				ink: {
+					DEFAULT: '#111827',
+					secondary: '#6B7280',
+					muted: '#9CA3AF'
+				},
+				logout: '#EA580C'
+			},
+			fontFamily: {
+				sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif']
 			},
 			borderRadius: {
+				panel: '16px',
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
 				sm: 'calc(var(--radius) - 4px)'

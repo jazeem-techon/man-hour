@@ -1,23 +1,27 @@
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
+import { useState, useEffect, useRef } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  Clock, Users, Briefcase, Banknote,
-  TrendingUp, Target, Loader2, Calendar, LayoutDashboard
+  Loader2, Lock, Bold, Italic, Underline, Strikethrough, List, ListOrdered, Calendar, TrendingUp,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Legend, PieChart, Pie, Cell
+  ResponsiveContainer, Legend, PieChart, Pie, Cell,
 } from 'recharts';
 import { Link } from 'react-router';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { fetchAdminDashboard, fetchSalespersonDashboard } from '@/api/manhourTrackerApi';
 import { formatCurrency } from '@/lib/utils';
 import { toast } from 'sonner';
+import { StatStrip } from '@/components/shared/StatStrip';
+import { DashboardCard } from '@/components/shared/DashboardCard';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { StatusBadge } from '@/components/shared/StatusBadge';
 
-// ─── Period Filter Component ────────────────────────────────────
+const initials = (name?: string) => (name || 'U').substring(0, 2).toUpperCase();
+const fmt = (v: number) => (v || 0).toLocaleString();
+const triggerCls = 'h-8 text-[13px] shrink-0';
+
+// ─── Period Filter ──────────────────────────────────────────────
 function PeriodFilter({
   period, year, quarter, month,
   onPeriodChange, onYearChange, onQuarterChange, onMonthChange,
@@ -39,23 +43,21 @@ function PeriodFilter({
   ];
 
   return (
-    <div className="flex flex-nowrap overflow-x-auto items-center gap-2 pb-2 -mx-2 px-2 md:mx-0 md:px-0 md:overflow-visible md:gap-3">
-      <div className="flex items-center gap-2 shrink-0">
-        <Calendar className="h-4 w-4 text-slate-500 hidden sm:block" />
-        <Select value={period} onValueChange={onPeriodChange}>
-          <SelectTrigger className="w-[100px] md:w-[130px] h-9 text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="monthly">Monthly</SelectItem>
-            <SelectItem value="quarterly">Quarterly</SelectItem>
-            <SelectItem value="yearly">Yearly</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto md:overflow-visible">
+      <Calendar className="hidden h-4 w-4 text-ink-muted sm:block" />
+      <Select value={period} onValueChange={onPeriodChange}>
+        <SelectTrigger className={`${triggerCls} w-[120px]`}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="monthly">Monthly</SelectItem>
+          <SelectItem value="quarterly">Quarterly</SelectItem>
+          <SelectItem value="yearly">Yearly</SelectItem>
+        </SelectContent>
+      </Select>
 
       <Select value={String(year)} onValueChange={(v) => onYearChange(Number(v))}>
-        <SelectTrigger className="w-[80px] md:w-[100px] h-9 text-sm shrink-0">
+        <SelectTrigger className={`${triggerCls} w-[90px]`}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -67,7 +69,7 @@ function PeriodFilter({
 
       {period === 'quarterly' && (
         <Select value={String(quarter)} onValueChange={(v) => onQuarterChange(Number(v))}>
-          <SelectTrigger className="w-[80px] md:w-[100px] h-9 text-sm shrink-0">
+          <SelectTrigger className={`${triggerCls} w-[80px]`}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -81,7 +83,7 @@ function PeriodFilter({
 
       {period === 'monthly' && (
         <Select value={String(month)} onValueChange={(v) => onMonthChange(Number(v))}>
-          <SelectTrigger className="w-[110px] md:w-[140px] h-9 text-sm shrink-0">
+          <SelectTrigger className={`${triggerCls} w-[130px]`}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -95,47 +97,151 @@ function PeriodFilter({
   );
 }
 
-function StatCard({ title, value, icon: Icon, cardBgClass, subtitle, trend }: {
-  title: string;
-  value: string;
-  icon: any;
-  cardBgClass?: string;
-  subtitle?: string;
-  trend?: string;
-}) {
+// ─── Admin Notes (private notepad, stored in this browser) ─────
+const NOTES_KEY = 'admin-notes';
+
+function NotesCard() {
+  const [value, setValue] = useState(() => {
+    try { return localStorage.getItem(NOTES_KEY) || ''; } catch { return ''; }
+  });
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  const update = (v: string) => {
+    setValue(v);
+    try { localStorage.setItem(NOTES_KEY, v); } catch { /* storage unavailable */ }
+  };
+
+  const wrap = (before: string, after = before) => {
+    const el = ref.current;
+    if (!el) return;
+    const { selectionStart: s, selectionEnd: e } = el;
+    update(value.slice(0, s) + before + value.slice(s, e) + after + value.slice(e));
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(s + before.length, e + before.length);
+    });
+  };
+
+  const prefix = (text: string) => {
+    const el = ref.current;
+    if (!el) return;
+    const s = el.selectionStart;
+    const lineStart = value.lastIndexOf('\n', s - 1) + 1;
+    update(value.slice(0, lineStart) + text + value.slice(lineStart));
+    requestAnimationFrame(() => el.focus());
+  };
+
+  const tools = [
+    { icon: Bold, label: 'Bold', run: () => wrap('**') },
+    { icon: Italic, label: 'Italic', run: () => wrap('_') },
+    { icon: Underline, label: 'Underline', run: () => wrap('<u>', '</u>') },
+    { icon: Strikethrough, label: 'Strikethrough', run: () => wrap('~~') },
+    { icon: List, label: 'Bulleted list', run: () => prefix('- ') },
+    { icon: ListOrdered, label: 'Numbered list', run: () => prefix('1. ') },
+  ];
+
   return (
-    <Card className={`relative overflow-hidden shadow-sm transition-all duration-200 ${cardBgClass || 'bg-white text-slate-900 border-slate-200'}`}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-slate-500">{title}</CardTitle>
-        <div className="p-2 bg-brand-primary/10 rounded-md">
-          <Icon className="h-4 w-4 text-brand-primary" />
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold tracking-tight">{value}</div>
-        <div className="flex items-center justify-between mt-1">
-          {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
-          {trend && (
-            <span className="inline-flex items-center text-xs font-medium text-brand-secondary bg-brand-secondary/10 px-2 py-0.5 rounded">
-              <TrendingUp className="h-3 w-3 mr-1" />
-              {trend}
-            </span>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+    <DashboardCard
+      title="Admin Notes"
+      actions={<Lock className="h-4 w-4 text-ink-muted" aria-label="Private" />}
+      className="bg-surface"
+    >
+      <textarea
+        ref={ref}
+        value={value}
+        onChange={(e) => update(e.target.value)}
+        placeholder="Write down anything here..."
+        className="min-h-[180px] w-full flex-1 resize-none bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-muted"
+      />
+      <div className="flex items-center gap-1 pt-2 text-ink-muted">
+        {tools.map(({ icon: Icon, label, run }) => (
+          <button
+            key={label}
+            type="button"
+            aria-label={label}
+            onClick={run}
+            className="flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-gray-200/60 hover:text-ink"
+          >
+            <Icon className="h-3.5 w-3.5" />
+          </button>
+        ))}
+      </div>
+    </DashboardCard>
   );
 }
 
-// ─── Target Pie Chart ────────────────────────────────────────
+// ─── Shared list/chart blocks ───────────────────────────────────
+function TrendChart({ data, bars, emptyTitle }: {
+  data: any[];
+  bars: { key: string; name: string; fill: string }[];
+  emptyTitle: string;
+}) {
+  if (!data.length) {
+    return <EmptyState title={emptyTitle} description="Data will appear here once hours are logged." />;
+  }
+  return (
+    <div className="h-[260px] w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+          <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} />
+          <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} tickFormatter={(v) => formatCurrency(v)} />
+          <Tooltip
+            formatter={(value: any, name: any) => [formatCurrency(value), name]}
+            cursor={{ fill: '#F3F4F6' }}
+            contentStyle={{ borderRadius: '12px', border: '1px solid #E5E7EB', boxShadow: '0 1px 2px rgb(0 0 0 / 0.05)', fontSize: 12 }}
+          />
+          {bars.length > 1 && <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />}
+          {bars.map((b) => (
+            <Bar key={b.key} dataKey={b.key} name={b.name} fill={b.fill} radius={[4, 4, 0, 0]} maxBarSize={36} />
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function ProjectList({ projects, showSalesperson, emptyTitle }: { projects: any[]; showSalesperson?: boolean; emptyTitle: string }) {
+  if (!projects.length) {
+    return <EmptyState title={emptyTitle} description="Projects will appear here." />;
+  }
+  return (
+    <ul className="divide-y divide-dashed divide-line">
+      {projects.map((p: any) => {
+        const f = p.financials || {};
+        return (
+          <li key={p._id} className="flex items-center justify-between gap-3 py-3 first:pt-0">
+            <div className="min-w-0">
+              <Link to={`/projects/${p._id}`} className="block truncate text-sm font-medium text-ink hover:text-primary">
+                {p.projectName || p.projectId}
+              </Link>
+              <p className="truncate text-xs text-ink-secondary">
+                {showSalesperson ? p.salespersonName || 'Unassigned' : p.customerName || '—'}
+                {' · '}{fmt(f.loggedHours)} hrs · {formatCurrency(f.totalCost || 0)}
+              </p>
+            </div>
+            {p.status && <StatusBadge status={p.status} />}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+const sortByDate = (list: any[]) =>
+  [...list].sort((a: any, b: any) => {
+    const dateA = a.projectDate ? new Date(a.projectDate).getTime() : 0;
+    const dateB = b.projectDate ? new Date(b.projectDate).getTime() : 0;
+    return dateB - dateA;
+  }).slice(0, 5);
+
+// ─── Target Pie Chart ───────────────────────────────────────────
 function TargetPieChart({ label, progressData, icon: Icon }: {
   label: string;
   progressData: { target: number; actual: number; percentage: number; remaining: number; isAchieved: boolean } | null;
   icon?: any;
 }) {
-  if (!progressData) {
-    return null;
-  }
+  if (!progressData) return null;
 
   const { target, actual, percentage, remaining } = progressData;
   const isNegative = actual < 0;
@@ -143,83 +249,43 @@ function TargetPieChart({ label, progressData, icon: Icon }: {
   const safePercentage = isNaN(percentage) || !isFinite(percentage) ? 0 : percentage;
   const achievedPct = isNegative ? 0 : Math.min(Math.max(safePercentage, 0), 100);
   const pendingPct = Math.max(100 - achievedPct, 0);
-
   const isEmpty = achievedPct === 0 && pendingPct === 0;
 
-  let achievedColor = '#3DB7E8'; // brand-primary
-  if (achievedPct < 50) {
-    achievedColor = '#ef4444'; // red-500
-  } else if (achievedPct < 80) {
-    achievedColor = '#f59e0b'; // amber-500
-  }
+  let achievedColor = '#1D4ED8';
+  if (achievedPct < 50) achievedColor = '#ef4444';
+  else if (achievedPct < 80) achievedColor = '#f59e0b';
 
-  let pendingColor = '#f8fafc'; // slate-50 for pending
-  if (achievedPct === 0 && !isEmpty) {
-    pendingColor = '#ef4444'; // Make the whole pie red if 0% achieved
-  }
+  let pendingColor = '#F3F4F6';
+  if (achievedPct === 0 && !isEmpty) pendingColor = '#ef4444';
 
   const data = isEmpty
-    ? [{ name: 'No Data', value: 100, fill: '#f8fafc' }] // Slate-50 for empty state
+    ? [{ name: 'No Data', value: 100, fill: '#F3F4F6' }]
     : [
       { name: 'Target Achieved', value: achievedPct, fill: achievedColor },
-      { name: 'Target Pending', value: pendingPct, fill: pendingColor }
+      { name: 'Target Pending', value: pendingPct, fill: pendingColor },
     ];
 
   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
     if (percent < 0.08 || isEmpty) return null;
-    const isFull = percent === 1;
-    const radius = isFull ? 0 : innerRadius + (outerRadius - innerRadius) * 0.5;
+    const radius = percent === 1 ? 0 : innerRadius + (outerRadius - innerRadius) * 0.5;
     const x = cx + radius * Math.cos(-midAngle * Math.PI / 180);
     const y = cy + radius * Math.sin(-midAngle * Math.PI / 180);
-
     return (
-      <text
-        x={x}
-        y={y}
-        fill="#111827"
-        textAnchor="middle"
-        dominantBaseline="central"
-      >
-        <tspan x={x} dy="-0.2em" fontSize="24" fontWeight="700" fontFamily="system-ui, sans-serif">{`${(percent * 100).toFixed(0)}%`}</tspan>
+      <text x={x} y={y} fill="#111827" textAnchor="middle" dominantBaseline="central">
+        <tspan x={x} dy="-0.2em" fontSize="22" fontWeight="600">{`${(percent * 100).toFixed(0)}%`}</tspan>
       </text>
     );
   };
 
   return (
-    <div className="p-6 rounded-xl border border-slate-100 bg-white shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center">
-      <div className="flex justify-between items-center w-full">
-        <div className="flex items-center gap-2.5">
-          {Icon && <Icon className="h-5 w-5 text-brand-secondary" />}
-          <span className="text-base font-semibold text-slate-800 tracking-tight">{label}</span>
-        </div>
-        {/* {!isEmpty && (
-          isAchieved ? (
-            <Badge className="bg-emerald-50 text-emerald-600 border border-emerald-200 text-xs px-2.5 py-0.5 shadow-sm">
-              ✅ Achieved
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="text-xs px-2.5 py-0.5 text-slate-500 bg-slate-50 border-slate-200 shadow-sm">
-              In Progress
-            </Badge>
-          )
-        )} */}
-      </div>
-
-      {/* Pie Chart */}
-      <div className="h-[320px] w-full relative">
+    <DashboardCard
+      title={<span className="flex items-center gap-2">{Icon && <Icon className="h-4 w-4 text-ink-secondary" />}{label}</span>}
+      className="min-h-0"
+    >
+      <div className="relative h-[260px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie
-              data={data}
-              cx="50%"
-              cy="50%"
-              labelLine={false}
-              label={renderCustomizedLabel}
-              outerRadius={135}
-              dataKey="value"
-              stroke="#ffffff"
-              strokeWidth={3}
-            >
+            <Pie data={data} cx="50%" cy="50%" labelLine={false} label={renderCustomizedLabel} outerRadius={105} dataKey="value" stroke="#ffffff" strokeWidth={3}>
               {data.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.fill} />
               ))}
@@ -227,47 +293,38 @@ function TargetPieChart({ label, progressData, icon: Icon }: {
             {!isEmpty && (
               <Tooltip
                 formatter={(value: any) => [`${Number(value).toFixed(1)}%`, '']}
-                contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                contentStyle={{ borderRadius: '12px', border: '1px solid #E5E7EB', fontSize: 12 }}
               />
             )}
             <Legend
               verticalAlign="bottom"
-              height={40}
+              height={32}
               iconType="circle"
-              wrapperStyle={{ fontSize: '14px', fontWeight: '500', paddingTop: '10px' }}
-              formatter={(value, entry: any) => {
-                if (value === 'No Data') return <span className="text-slate-400 ml-1">No Data Available</span>;
-                return (
-                  <span className="text-slate-700 ml-1">
-                    {value} <span className="font-semibold ml-0.5">({entry.payload.value.toFixed(0)}%)</span>
-                  </span>
-                );
-              }}
+              wrapperStyle={{ fontSize: '12px' }}
+              formatter={(value, entry: any) =>
+                value === 'No Data'
+                  ? <span className="ml-1 text-ink-muted">No Data Available</span>
+                  : <span className="ml-1 text-ink-secondary">{value} <span className="font-semibold text-ink">({entry.payload.value.toFixed(0)}%)</span></span>
+              }
             />
           </PieChart>
         </ResponsiveContainer>
       </div>
-
-      {/* Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 w-full text-center mt-6">
-        <div className="p-3 rounded-lg bg-slate-50/80 border border-slate-100 shadow-sm">
-          <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Target</p>
-          <p className="text-sm font-bold text-slate-800">{formatCurrency(target || 0)}</p>
+      <div className="mt-3 grid grid-cols-3 divide-x divide-dashed divide-line border-t border-dashed border-line pt-3 text-center">
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-ink-muted">Target</p>
+          <p className="mt-1 text-[13px] font-medium text-ink">{formatCurrency(target || 0)}</p>
         </div>
-        <div className="p-3 rounded-lg bg-slate-50/80 border border-slate-100 shadow-sm">
-          <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Actual</p>
-          <p className={`text-sm font-bold ${isNegative ? 'text-red-600' : 'text-emerald-700'}`}>
-            {formatCurrency(actual || 0)}
-          </p>
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-ink-muted">Actual</p>
+          <p className={`mt-1 text-[13px] font-medium ${isNegative ? 'text-red-600' : 'text-green-700'}`}>{formatCurrency(actual || 0)}</p>
         </div>
-        <div className="p-3 rounded-lg bg-slate-50/80 border border-slate-100 shadow-sm">
-          <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Remaining</p>
-          <p className={`text-sm font-bold ${remaining === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
-            {formatCurrency(remaining || 0)}
-          </p>
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-ink-muted">Remaining</p>
+          <p className={`mt-1 text-[13px] font-medium ${remaining === 0 ? 'text-green-700' : 'text-amber-600'}`}>{formatCurrency(remaining || 0)}</p>
         </div>
       </div>
-    </div>
+    </DashboardCard>
   );
 }
 
@@ -275,258 +332,64 @@ function TargetPieChart({ label, progressData, icon: Icon }: {
 function AdminDashboard({ data }: { data: any }) {
   const summary = data?.summary || {};
   const monthlyTrend = data?.monthlyTrend || [];
-  const topEmployees = data?.topEmployees || [];
-  const projects = [...(data?.projects || [])].sort((a: any, b: any) => {
-    const dateA = a.projectDate ? new Date(a.projectDate).getTime() : 0;
-    const dateB = b.projectDate ? new Date(b.projectDate).getTime() : 0;
-    return dateB - dateA;
-  }).slice(0, 5);
-
-  const fmt = (v: number) => (v || 0).toLocaleString();
+  const topEmployees = (data?.topEmployees || []).slice(0, 8);
+  const projects = sortByDate(data?.projects || []);
 
   return (
     <>
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <StatCard
-          title="Total Projects"
-          value={fmt(summary.projectsCount)}
-          icon={Briefcase}
-        />
-        <StatCard
-          title="Total Revenue"
-          value={formatCurrency(summary.totalRevenue || 0)}
-          icon={Banknote}
-          cardBgClass="bg-green-50 border border-green-200 text-green-900"
-        />
-        <StatCard
-          title="Total Cost"
-          value={formatCurrency(summary.totalCost || 0)}
-          icon={Briefcase}
-          cardBgClass="bg-red-50 border border-red-200 text-red-900"
-        />
-        <StatCard
-          title="Man-Hour Cost"
-          value={formatCurrency(summary.totalManHourCost || 0)}
-          icon={Clock}
-          cardBgClass="bg-amber-50 border border-amber-200 text-amber-900"
-        />
-        <StatCard
-          title="Total Gross Profit"
-          value={formatCurrency(summary.grossProfit || 0)}
-          icon={TrendingUp}
-          cardBgClass={(summary.grossProfit || 0) < 0 ? 'bg-red-50 border border-red-200 text-red-900' : 'bg-green-50 border border-green-200 text-green-900'}
-        />
-        <StatCard
-          title="Total Net Profit"
-          value={formatCurrency(summary.netProfit || 0)}
-          icon={TrendingUp}
-          cardBgClass={(summary.netProfit || 0) < 0 ? 'bg-red-50 border border-red-200 text-red-900' : 'bg-green-50 border border-green-200 text-green-900'}
-        />
-      </div>
+      <StatStrip
+        stats={[
+          { label: 'Total Projects', value: fmt(summary.projectsCount) },
+          { label: 'Total Revenue', value: formatCurrency(summary.totalRevenue || 0) },
+          { label: 'Total Cost', value: formatCurrency(summary.totalCost || 0) },
+          { label: 'Man-Hour Cost', value: formatCurrency(summary.totalManHourCost || 0) },
+          { label: 'Gross Profit', value: formatCurrency(summary.grossProfit || 0), tone: (summary.grossProfit || 0) < 0 ? 'negative' : 'default' },
+          { label: 'Net Profit', value: formatCurrency(summary.netProfit || 0), tone: (summary.netProfit || 0) < 0 ? 'negative' : 'default' },
+        ]}
+      />
 
-      {/* Chart + Top Employees */}
-      <div className="grid grid-cols-1 lg:grid-cols-7 gap-6">
-        {/* Monthly Trend Chart */}
-        <Card className="lg:col-span-4 shadow-sm border-slate-200 overflow-hidden">
-          <CardHeader className="bg-slate-50 border-b border-slate-100 pb-4">
-            <CardTitle className="text-lg text-slate-800">Monthly Cost Trend</CardTitle>
-            <CardDescription>Man-hour cost over time</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-4">
-            {monthlyTrend.length > 0 ? (
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={monthlyTrend} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} />
-                    <YAxis
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fill: '#64748b' }}
-                      tickFormatter={(v) => formatCurrency(v)}
-                    />
-                    <Tooltip
-                      formatter={(value: any, name: any) => [formatCurrency(value), name]}
-                      cursor={{ fill: '#f1f5f9' }}
-                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    />
-                    <Legend />
-                    <Bar dataKey="manHourCost" name="Man-Hour Cost" fill="#4E73D8" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-[300px] text-muted-foreground border border-dashed rounded-md bg-slate-50/50">
-                No trend data available for this period
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <DashboardCard title="Monthly Cost Trend">
+          <TrendChart
+            data={monthlyTrend}
+            bars={[{ key: 'manHourCost', name: 'Man-Hour Cost', fill: '#1D4ED8' }]}
+            emptyTitle="No trend data yet"
+          />
+        </DashboardCard>
 
-        {/* Top Employees Table */}
-        <Card className="lg:col-span-3 shadow-sm border-slate-200 overflow-hidden">
-          <CardHeader className="bg-slate-50 border-b border-slate-100 pb-4">
-            <CardTitle className="text-lg text-slate-800 flex items-center gap-2">
-              <Users className="h-5 w-5 text-blue-600" />
-              Top Employees
-            </CardTitle>
-            <CardDescription>By logged hours</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-2">
-            {topEmployees.length > 0 ? (
-              <>
-                <div className="md:hidden space-y-3">
-                  {topEmployees.slice(0, 8).map((emp: any, idx: number) => (
-                    <div key={emp.employeeId || idx} className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center hover:shadow-md transition-shadow">
-                      <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 border-2 border-slate-100 rounded-full flex items-center justify-center bg-blue-50 text-blue-700 font-bold">
-                          {(emp.employeeName || 'U').substring(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <div className="font-semibold text-slate-800">{emp.employeeName || 'Unknown'}</div>
-                          <div className="text-xs font-medium text-slate-500">{formatCurrency(emp.totalCost || 0)}</div>
-                        </div>
-                      </div>
-                      <div className="text-right font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">{fmt(emp.totalHours)} hrs</div>
-                    </div>
-                  ))}
-                </div>
-                <div className="hidden md:block">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="hover:bg-transparent border-b-slate-200">
-                        <TableHead className="font-semibold text-slate-600">Employee</TableHead>
-                        <TableHead className="text-right font-semibold text-slate-600">Hours</TableHead>
-                        <TableHead className="text-right font-semibold text-slate-600">Cost</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {topEmployees.slice(0, 8).map((emp: any, idx: number) => (
-                        <TableRow key={emp.employeeId || idx} className="hover:bg-slate-50/50 group transition-colors">
-                          <TableCell className="font-medium flex items-center gap-3 py-3">
-                            <div className="h-8 w-8 border border-slate-200 group-hover:border-brand-primary/20 transition-colors rounded-full flex items-center justify-center bg-brand-primary/10 text-brand-primary font-semibold text-xs">
-                              {(emp.employeeName || 'U').substring(0, 2).toUpperCase()}
-                            </div>
-                            <span className="text-slate-700 group-hover:text-brand-secondary transition-colors">{emp.employeeName || 'Unknown'}</span>
-                          </TableCell>
-                          <TableCell className="text-right font-bold text-slate-700">{fmt(emp.totalHours)} hrs</TableCell>
-                          <TableCell className="text-right text-sm text-slate-500 font-medium">{formatCurrency(emp.totalCost || 0)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </>
-            ) : (
-              <div className="flex items-center justify-center h-[200px] text-muted-foreground border border-dashed rounded-md bg-slate-50/50">
-                No employee data for this period
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Projects Table */}
-      <Card className="shadow-sm border-slate-200 overflow-hidden">
-        <CardHeader className="bg-slate-50 border-b border-slate-100 pb-4">
-          <CardTitle className="text-lg text-slate-800 flex items-center gap-2">
-            <Briefcase className="h-5 w-5 text-blue-600" />
-            All Projects
-          </CardTitle>
-          <CardDescription>Project overview with financials</CardDescription>
-        </CardHeader>
-        <CardContent className="pt-2">
-          {projects.length > 0 ? (
-            <>
-              <div className="md:hidden space-y-3">
-                {projects.map((p: any) => {
-                  const f = p.financials || {};
-                  const status = p.status || 'Unknown';
-                  const isActive = status === 'In progress' || status === 'Active';
-                  return (
-                    <div key={p._id} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex flex-col gap-3 hover:shadow-md transition-all duration-200">
-                      <div className="flex justify-between items-start">
-                        <Link to={`/projects/${p._id}`} className="font-semibold text-slate-800 hover:text-brand-secondary transition-colors">
-                          {p.projectName || p.projectId}
-                        </Link>
-                        <Badge variant={isActive ? 'default' : 'secondary'} className={isActive ? 'bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20 border-none px-2.5 shadow-none' : 'shadow-none'}>
-                          {status}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-slate-500">
-                        <Users className="h-4 w-4 text-slate-400" />
-                        {p.salespersonName || 'Unassigned'}
-                      </div>
-                      <div className="flex justify-between items-center mt-2 pt-3 border-t border-slate-100/60">
-                        <div className="flex flex-col">
-                          <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Cost</span>
-                          <span className="text-sm font-semibold text-slate-700">{formatCurrency(f.totalCost || 0)}</span>
-                        </div>
-                        <div className="flex flex-col text-right">
-                          <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Hours</span>
-                          <span className="text-sm font-bold text-blue-600">{fmt(f.loggedHours)} hrs</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="hidden md:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent border-b-slate-200">
-                      <TableHead className="font-semibold text-slate-600">Project</TableHead>
-                      <TableHead className="font-semibold text-slate-600">Salesperson</TableHead>
-                      <TableHead className="font-semibold text-slate-600">Status</TableHead>
-                      <TableHead className="text-right font-semibold text-slate-600">Hours</TableHead>
-                      <TableHead className="text-right font-semibold text-slate-600">Cost</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {projects.map((p: any) => {
-                      const f = p.financials || {};
-                      const status = p.status || 'Unknown';
-                      const isActive = status === 'In progress' || status === 'Active';
-                      return (
-                        <TableRow key={p._id} className="hover:bg-slate-50/60 group transition-colors">
-                          <TableCell className="font-medium py-4">
-                            <Link to={`/projects/${p._id}`} className="text-slate-800 font-semibold group-hover:text-brand-secondary transition-colors flex items-center gap-2">
-                              {p.projectName || p.projectId}
-                            </Link>
-                          </TableCell>
-                          <TableCell className="text-slate-500 font-medium">{p.salespersonName || '-'}</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={isActive ? 'default' : 'secondary'}
-                              className={isActive ? 'bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20 border-none shadow-none' : 'shadow-none'}
-                            >
-                              {status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right font-bold text-slate-700">{fmt(f.loggedHours)} hrs</TableCell>
-                          <TableCell className="text-right text-slate-500 font-medium">{formatCurrency(f.totalCost || 0)}</TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </>
+        <DashboardCard title="Top Employees">
+          {topEmployees.length > 0 ? (
+            <ul className="divide-y divide-dashed divide-line">
+              {topEmployees.map((emp: any, idx: number) => (
+                <li key={emp.employeeId || idx} className="flex items-center gap-3 py-3 first:pt-0">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-ink-secondary">
+                    {initials(emp.employeeName)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-ink">{emp.employeeName || 'Unknown'}</p>
+                    <p className="text-xs text-ink-secondary">{formatCurrency(emp.totalCost || 0)}</p>
+                  </div>
+                  <span className="text-sm text-ink">{fmt(emp.totalHours)} hrs</span>
+                </li>
+              ))}
+            </ul>
           ) : (
-            <div className="flex items-center justify-center h-[150px] text-muted-foreground border border-dashed rounded-md bg-slate-50/50">
-              No projects found for this period
-            </div>
+            <EmptyState title="No employee data yet" description="Logged hours by employee will appear here." />
           )}
-        </CardContent>
-      </Card>
+        </DashboardCard>
+
+        <DashboardCard title="Recent Projects">
+          <ProjectList projects={projects} showSalesperson emptyTitle="No projects for this period" />
+        </DashboardCard>
+
+        <NotesCard />
+      </div>
     </>
   );
 }
 
 // ─── Salesperson Dashboard ──────────────────────────────────────
 function SalespersonDashboard({ data }: { data: any }) {
-  // const target = data?.target || {};
   const actuals = data?.actuals || {};
   const monthlyTarget = data?.monthlyTarget || null;
   let quarterlyTarget = data?.quarterlyTarget || null;
@@ -540,233 +403,55 @@ function SalespersonDashboard({ data }: { data: any }) {
       target: adjustedTarget,
       percentage: adjustedPercentage,
       remaining: adjustedRemaining,
-      isAchieved: quarterlyTarget.actual >= adjustedTarget
+      isAchieved: quarterlyTarget.actual >= adjustedTarget,
     };
   }
   const allProjects = data?.projects || [];
   const projectsCount = data?.projectsCount || allProjects.length;
-  const projects = [...allProjects].sort((a: any, b: any) => {
-    const dateA = a.projectDate ? new Date(a.projectDate).getTime() : 0;
-    const dateB = b.projectDate ? new Date(b.projectDate).getTime() : 0;
-    return dateB - dateA;
-  }).slice(0, 5);
+  const projects = sortByDate(allProjects);
   const monthlyTrend = data?.monthlyTrend || [];
-
-  const fmt = (v: number) => (v || 0).toLocaleString();
-
   const hasTargets = !!monthlyTarget || !!quarterlyTarget;
-
-  // Calculate an overall achievement percentage for the summary card
   const targetAchievementPct = Math.max(monthlyTarget?.percentage || 0, quarterlyTarget?.percentage || 0);
-
-  const getAchievementColor = (pct: number) => {
-    if (pct < 50) return "bg-red-50 border border-red-200 text-red-900";
-    if (pct < 80) return "bg-amber-50 border border-amber-200 text-amber-900";
-    return "bg-emerald-50 border border-emerald-200 text-emerald-900";
-  };
-
-  // const monthlyPct = monthlyTarget?.percentage || 0;
-  // const quarterlyPct = quarterlyTarget?.percentage || 0;
 
   return (
     <>
-      {/* Welcome Header */}
+      <StatStrip
+        stats={[
+          { label: 'Total Projects', value: fmt(projectsCount) },
+          { label: 'Total Revenue', value: formatCurrency(actuals.revenue || 0) },
+          { label: 'Total Cost', value: formatCurrency(actuals.totalCost || 0) },
+          { label: 'Gross Profit', value: formatCurrency(actuals.grossProfit || 0), tone: (actuals.grossProfit || 0) < 0 ? 'negative' : 'default' },
+          { label: 'Net', value: formatCurrency(actuals.grossProfit || 0), tone: (actuals.grossProfit || 0) < 0 ? 'negative' : 'default' },
+          { label: 'Target Achievement', value: `${targetAchievementPct.toFixed(1)}%` },
+        ]}
+      />
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-6 mb-6">
-        <StatCard
-          title="Total Projects"
-          value={fmt(projectsCount)}
-          icon={Briefcase}
-        />
-        <StatCard
-          title="Total Revenue"
-          value={formatCurrency(actuals.revenue || 0)}
-          icon={Banknote}
-          cardBgClass="bg-green-50 border border-green-200 text-green-900"
-        />
-        <StatCard
-          title="Total Cost"
-          value={formatCurrency(actuals.totalCost || 0)}
-          icon={Briefcase}
-          cardBgClass="bg-red-50 border border-red-200 text-red-900"
-        />
-        <StatCard
-          title="Total Gross Profit"
-          value={formatCurrency(actuals.grossProfit || 0)}
-          icon={TrendingUp}
-          cardBgClass={(actuals.grossProfit || 0) < 0 ? 'bg-red-50 border border-red-200 text-red-900' : 'bg-green-50 border border-green-200 text-green-900'}
-        />
-        <StatCard
-          title="Total Net"
-          value={formatCurrency(actuals.grossProfit || 0)}
-          icon={TrendingUp}
-          cardBgClass={(actuals.grossProfit || 0) < 0 ? 'bg-red-50 border border-red-200 text-red-900' : 'bg-green-50 border border-green-200 text-green-900'}
-        />
-        <StatCard
-          title="Target Achievement"
-          value={`${targetAchievementPct.toFixed(1)}%`}
-          icon={Target}
-          cardBgClass={getAchievementColor(targetAchievementPct)}
-        />
-      </div>
-
-      {/* Target vs Actual Progress */}
-      {/* <Card className="shadow-sm border-slate-200 overflow-hidden bg-white"> */}
-      {/* <CardHeader className="bg-white border-b border-slate-100 pb-4">
-          <CardTitle className="text-lg text-slate-800 flex items-center gap-2 uppercase tracking-wide">
-            <Target className="h-5 w-5 text-indigo-600" />
-            Target vs Target Achievement
-          </CardTitle>
-          <CardDescription>
-            Your monthly and quarterly target progress
-          </CardDescription>
-        </CardHeader> */}
-      {/* <CardContent> */}
       {hasTargets ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <TargetPieChart
-            label="Monthly Target Achievement"
-            progressData={monthlyTarget}
-            icon={Calendar}
-          />
-          <TargetPieChart
-            label="Quarterly Target Achievement"
-            progressData={quarterlyTarget}
-            icon={TrendingUp}
-          />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <TargetPieChart label="Monthly Target Achievement" progressData={monthlyTarget} icon={Calendar} />
+          <TargetPieChart label="Quarterly Target Achievement" progressData={quarterlyTarget} icon={TrendingUp} />
         </div>
       ) : (
-        <div className="text-center py-8 text-muted-foreground text-sm border border-dashed rounded-md bg-white">
-          <Target className="h-10 w-10 mx-auto mb-3 text-slate-300" />
-          <p className="font-medium text-slate-600">No targets set</p>
-          <p className="text-xs mt-1">Ask your admin to set your monthly and quarterly targets.</p>
-        </div>
+        <DashboardCard title="Targets" className="min-h-[260px]">
+          <EmptyState title="No targets set" description="Ask your admin to set your monthly and quarterly targets." />
+        </DashboardCard>
       )}
-      {/* </CardContent> */}
-      {/* </Card> */}
 
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <DashboardCard title="Monthly Performance">
+          <TrendChart
+            data={monthlyTrend}
+            bars={[
+              { key: 'revenue', name: 'Revenue', fill: '#1D4ED8' },
+              { key: 'cost', name: 'Cost', fill: '#93C5FD' },
+            ]}
+            emptyTitle="No trend data yet"
+          />
+        </DashboardCard>
 
-
-      {/* Chart + Projects */}
-      <div className="grid grid-cols-1 lg:grid-cols-7 gap-6">
-        {/* Monthly Performance Trend */}
-        <Card className="lg:col-span-4 shadow-sm border-slate-200 overflow-hidden">
-          <CardHeader className="bg-slate-50 border-b border-slate-100 pb-4">
-            <CardTitle className="text-lg text-slate-800">Monthly Performance</CardTitle>
-            <CardDescription>Revenue & cost trends for your projects</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-4">
-            {monthlyTrend.length > 0 ? (
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={monthlyTrend} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} />
-                    <YAxis
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fill: '#64748b' }}
-                      tickFormatter={(v) => formatCurrency(v)}
-                    />
-                    <Tooltip
-                      formatter={(value: any, name: any) => [formatCurrency(value), name]}
-                      cursor={{ fill: '#f1f5f9' }}
-                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    />
-                    <Legend />
-                    <Bar dataKey="revenue" name="Revenue" fill="#3DB7E8" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                    <Bar dataKey="cost" name="Cost" fill="#4E73D8" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-[300px] text-muted-foreground border border-dashed rounded-md bg-slate-50/50">
-                No trend data available for this period
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* My Projects */}
-        <Card className="lg:col-span-3 shadow-sm border-slate-200 overflow-hidden">
-          <CardHeader className="bg-slate-50 border-b border-slate-100 pb-4">
-            <CardTitle className="text-lg text-slate-800 flex items-center gap-2">
-              <Briefcase className="h-5 w-5 text-blue-600" />
-              My Projects
-            </CardTitle>
-            <CardDescription>{projectsCount} project{projectsCount !== 1 ? 's' : ''} assigned</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-2">
-            {projects.length > 0 ? (
-              <>
-                <div className="md:hidden space-y-3">
-                  {projects.map((p: any) => {
-                    const f = p.financials || {};
-                    return (
-                      <div key={p._id} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex flex-col gap-3 hover:shadow-md transition-shadow">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <Link to={`/projects/${p._id}`} className="font-semibold text-slate-800 hover:text-blue-600 transition-colors">
-                              {p.projectName || p.projectId}
-                            </Link>
-                            <p className="text-xs text-slate-500 mt-1">{p.customerName || ''}</p>
-                          </div>
-                        </div>
-                        <div className="flex justify-between items-center pt-3 border-t border-slate-100/60">
-                          <div className="flex flex-col">
-                            <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Cost</span>
-                            <span className="text-sm font-semibold text-slate-700">{formatCurrency(f.totalCost || 0)}</span>
-                          </div>
-                          <div className="flex flex-col text-right">
-                            <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Hours</span>
-                            <span className="text-sm font-bold text-blue-600">{(f.loggedHours || 0).toLocaleString()} hrs</span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="hidden md:block">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="hover:bg-transparent border-b-slate-200">
-                        <TableHead className="font-semibold text-slate-600">Project</TableHead>
-                        <TableHead className="text-right font-semibold text-slate-600">Hours</TableHead>
-                        <TableHead className="text-right font-semibold text-slate-600">Cost</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {projects.map((p: any) => {
-                        const f = p.financials || {};
-                        return (
-                          <TableRow key={p._id} className="hover:bg-slate-50/60 group transition-colors">
-                            <TableCell className="font-medium py-4">
-                              <Link to={`/projects/${p._id}`} className="text-slate-800 font-semibold group-hover:text-brand-secondary transition-colors block">
-                                {p.projectName || p.projectId}
-                              </Link>
-                              <p className="text-xs text-slate-500 mt-1 truncate max-w-[150px]" title={p.customerName}>{p.customerName || ''}</p>
-                            </TableCell>
-                            <TableCell className="text-right font-bold text-slate-700">
-                              {(f.loggedHours || 0).toLocaleString()} hrs
-                            </TableCell>
-                            <TableCell className="text-right text-sm text-slate-500 font-medium">
-                              {formatCurrency(f.totalCost || 0)}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              </>
-            ) : (
-              <div className="flex items-center justify-center h-[200px] text-muted-foreground border border-dashed rounded-md bg-slate-50/50">
-                No projects assigned
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <DashboardCard title="My Projects" actions={<span className="text-xs text-ink-secondary">{projectsCount} assigned</span>}>
+          <ProjectList projects={projects} emptyTitle="No projects assigned" />
+        </DashboardCard>
       </div>
     </>
   );
@@ -823,24 +508,14 @@ export function DashboardPage() {
   if (isLoading) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
       </div>
     );
   }
 
-
-
   return (
-    <div className="space-y-6">
-      {/* Page Header + Period Filter */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        {/* <div>
-          <p className="text-muted-foreground">
-            {isSalesperson ? 'Your performance overview' : 'Company-wide operations overview'}
-            {' — '}
-            <span className="font-medium text-slate-700">{periodLabel}</span>
-          </p>
-        </div> */}
+    <div className="space-y-4">
+      <div className="flex justify-end">
         <PeriodFilter
           period={period}
           year={year}
@@ -853,15 +528,10 @@ export function DashboardPage() {
         />
       </div>
 
-      {/* Role-based content */}
       {hasNoTargets ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center border rounded-lg bg-slate-50 border-slate-200 shadow-sm">
-          <div className="w-16 h-16 bg-blue-100 text-blue-600 flex items-center justify-center rounded-full mb-4">
-            <LayoutDashboard className="w-8 h-8 opacity-80" />
-          </div>
-          <h3 className="text-xl font-semibold text-slate-800 mb-2">No Targets Assigned</h3>
-          <p className="text-slate-500 max-w-md">No targets assigned to you for this period. Please contact your company admin to set a target.</p>
-        </div>
+        <DashboardCard title="Targets" className="min-h-[360px]">
+          <EmptyState title="No targets assigned" description="No targets assigned to you for this period. Please contact your company admin." />
+        </DashboardCard>
       ) : isSalesperson ? (
         <SalespersonDashboard data={dashboardData} />
       ) : (

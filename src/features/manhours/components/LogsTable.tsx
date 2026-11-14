@@ -85,7 +85,7 @@ export function LogsTable() {
 
   return (
     <>
-      <Card className="border-slate-200 shadow-sm mt-6">
+      <Card className="border-line mt-6">
         <CardContent className="p-0">
           {/* Mobile View */}
           <div className="md:hidden p-4 space-y-4">

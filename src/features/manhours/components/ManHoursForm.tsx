@@ -157,7 +157,7 @@ export function ManHoursForm({ projects, employees }: ManHoursFormProps) {
         </div>
       )}
 
-      <Card className="border-blue-100 shadow-md">
+      <Card className="border-line">
         <CardHeader>
           <CardTitle className="text-blue-900">New Entry</CardTitle>
           <CardDescription>Fill out the details below to log new hours.</CardDescription>

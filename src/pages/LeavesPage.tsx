@@ -186,12 +186,8 @@ export function LeavesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight text-slate-900">Leaves</h2>
-        <p className="text-muted-foreground">Manage employee leave requests.</p>
-      </div>
 
-      <Card className="border-blue-100 shadow-md">
+      <Card className="border-line">
         <CardHeader>
           <CardTitle className="text-slate-900">Add Leave Request</CardTitle>
         </CardHeader>
@@ -308,7 +304,7 @@ export function LeavesPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-blue-100 shadow-md">
+      <Card className="border-line">
         <CardHeader className="flex flex-col md:flex-row items-center justify-between gap-4">
           <CardTitle className="text-slate-900">Leaves Directory</CardTitle>
           <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">

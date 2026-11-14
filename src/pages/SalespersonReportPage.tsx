@@ -260,14 +260,10 @@ export function SalespersonReportPage() {
   return (
     <ErrorBoundary>
       <div className="space-y-6">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900">Salesperson Report</h2>
-          <p className="text-muted-foreground">View salesperson performance across a specific date range.</p>
-        </div>
 
 
 
-        <Card className="border-blue-100 shadow-md">
+        <Card className="border-line">
           <CardHeader>
             <CardTitle className="text-slate-900">Salesperson Directory</CardTitle>
           </CardHeader>

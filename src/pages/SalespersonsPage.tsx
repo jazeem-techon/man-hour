@@ -272,12 +272,8 @@ export function SalespersonsPage() {
   return (
     <ErrorBoundary>
       <div className="space-y-6">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900">Salespersons & Targets</h2>
-          <p className="text-muted-foreground">Manage your sales team and set revenue targets.</p>
-        </div>
 
-        <Card className="border-blue-100 shadow-md">
+        <Card className="border-line">
           <CardHeader>
             <CardTitle className="text-slate-900">Set Salesperson Target</CardTitle>
           </CardHeader>
@@ -359,7 +355,7 @@ export function SalespersonsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-blue-100 shadow-md">
+        <Card className="border-line">
           <CardHeader>
             <CardTitle className="text-slate-900">Salesperson Directory</CardTitle>
           </CardHeader>

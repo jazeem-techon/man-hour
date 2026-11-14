@@ -271,13 +271,9 @@ export function ProjectsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight text-slate-900">Projects</h2>
-        <p className="text-muted-foreground">Manage projects and assigned salespersons.</p>
-      </div>
 
 
-      <Card className="border-blue-100 shadow-md">
+      <Card className="border-line">
         <CardHeader>
           <CardTitle className="text-slate-900">Projects Directory</CardTitle>
         </CardHeader>
@@ -388,7 +384,7 @@ export function ProjectsPage() {
               <div className="text-center p-4 text-slate-500">No projects found.</div>
             )}
             {table.getRowModel().rows?.length > 0 && (
-              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm mt-6">
+              <div className="bg-slate-50 p-4 rounded-lg border border-line mt-6">
                 <h3 className="font-bold text-slate-800 border-b border-slate-200 pb-2 mb-3">Totals Summary</h3>
                 <div className="flex justify-between items-center text-sm mb-2">
                   <span className="font-semibold text-slate-600">Revenue</span>

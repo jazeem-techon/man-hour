@@ -117,7 +117,7 @@ export function ActivityHoursForm({ activities, employees, onActivityCreated }: 
         </div>
       )}
 
-      <Card className="border-blue-100 shadow-md">
+      <Card className="border-line">
         <CardHeader>
           <CardTitle className="text-blue-900">New Activity Entry</CardTitle>
           <CardDescription>Fill out the details below to log hours against an activity.</CardDescription>

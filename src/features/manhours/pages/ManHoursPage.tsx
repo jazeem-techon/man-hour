@@ -29,10 +29,6 @@ export function ManHoursPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-blue-900">Log Man-Hours</h2>
-          <p className="text-muted-foreground">Record daily hours for your active projects or activities.</p>
-        </div>
         <div className="flex items-center bg-slate-100 p-1 rounded-lg self-start sm:self-auto">
           <button
             onClick={() => setFormType('project')}

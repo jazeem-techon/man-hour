@@ -65,10 +65,6 @@ export function ReportByProjectPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight text-slate-900">Report: By Project</h2>
-        <p className="text-muted-foreground">View detailed hour logs and team contributions per project.</p>
-      </div>
 
       <Card className="border-blue-100 shadow-sm bg-blue-50/50">
         <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-center">
