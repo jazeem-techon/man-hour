@@ -1,8 +1,8 @@
 import { NavLink } from 'react-router';
-import { LayoutDashboard, Clock, Briefcase, UserCircle, FileText, CalendarOff, type LucideIcon } from 'lucide-react';
+import { LayoutDashboard, Briefcase, UserCircle, FileText, CalendarOff, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { WorkspaceSwitcher } from './WorkspaceSwitcher';
+import { Logo } from '@/components/shared/Logo';
 
 type NavItem = { to: string; label: string; icon: LucideIcon; adminOnly?: boolean };
 
@@ -27,13 +27,10 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col gap-4 px-4 py-5">
       <div className="flex items-center gap-2.5 px-1">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white">
-          <Clock className="h-4 w-4" />
-        </span>
+        <Logo size={32} />
         <span className="text-lg font-bold tracking-tight text-ink">ManHour</span>
       </div>
 
-      <WorkspaceSwitcher />
 
       <nav className="flex flex-col gap-0.5">
         {items.map(({ to, label, icon: Icon }) => (
