@@ -1,12 +1,10 @@
-import { useLocation, useNavigate } from 'react-router';
-import { Menu, Search, Settings, HelpCircle } from 'lucide-react';
+import { useLocation } from 'react-router';
+import { Menu, Search, HelpCircle } from 'lucide-react';
 import { IconButton } from '@/components/shared/DashboardCard';
-import { useAuth } from '@/features/auth/hooks/useAuth';
 import { UserMenu } from './UserMenu';
 
 const pageMeta: { match: (p: string) => boolean; title: string; subtitle: string }[] = [
   { match: (p) => p.startsWith('/dashboard'), title: 'Dashboard', subtitle: 'Monitor projects, hours and costs here' },
-  { match: (p) => p.startsWith('/manhours'), title: 'Log Hours', subtitle: 'Record daily hours for projects or activities' },
   { match: (p) => p.startsWith('/projects/') && p.length > '/projects/'.length && !p.startsWith('/projects/salesman'), title: 'Project Details', subtitle: 'Financials, hours and team contributions' },
   { match: (p) => p.startsWith('/projects'), title: 'Projects', subtitle: 'Manage projects and assigned salespersons' },
   { match: (p) => p.startsWith('/timesheet'), title: 'Timesheet', subtitle: 'All man-hour log entries across projects and activities' },
@@ -15,13 +13,10 @@ const pageMeta: { match: (p: string) => boolean; title: string; subtitle: string
   { match: (p) => p.startsWith('/reports/by-employee'), title: 'Report: By Employee', subtitle: 'Hours and cost per employee' },
   { match: (p) => p.startsWith('/reports/by-project'), title: 'Report: By Project', subtitle: 'Hour logs and team contributions per project' },
   { match: (p) => p.startsWith('/reports/by-salesperson'), title: 'Report: By Salesperson', subtitle: 'Performance per salesperson' },
-  { match: (p) => p.startsWith('/settings'), title: 'Settings', subtitle: 'Application settings and integrations' },
 ];
 
 export function TopBar({ onOpenMenu }: { onOpenMenu: () => void }) {
   const { pathname } = useLocation();
-  const navigate = useNavigate();
-  const { isAdmin } = useAuth();
   const meta = pageMeta.find((m) => m.match(pathname)) ?? { title: '', subtitle: '' };
 
   return (
@@ -48,11 +43,6 @@ export function TopBar({ onOpenMenu }: { onOpenMenu: () => void }) {
           <kbd className="flex h-5 w-5 items-center justify-center rounded border border-line bg-white text-[10px] text-ink-secondary">⌘</kbd>
           <kbd className="flex h-5 w-5 items-center justify-center rounded border border-line bg-white text-[10px] text-ink-secondary">F</kbd>
         </div>
-        {isAdmin && (
-          <IconButton aria-label="Settings" className="hidden sm:inline-flex" onClick={() => navigate('/settings')}>
-            <Settings className="h-4 w-4" />
-          </IconButton>
-        )}
         <IconButton aria-label="Help" className="hidden sm:inline-flex">
           <HelpCircle className="h-4 w-4" />
         </IconButton>

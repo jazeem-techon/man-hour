@@ -25,7 +25,7 @@ export function SidebarLayout() {
       {/* Main panel */}
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-white md:rounded-panel">
         <TopBar onOpenMenu={() => setMobileMenuOpen(true)} />
-        <div className="flex-1 overflow-y-auto px-4 pb-6 pt-4 md:px-6">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-4 md:px-6">
           <Outlet />
         </div>
       </main>

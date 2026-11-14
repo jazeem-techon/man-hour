@@ -1,425 +1,390 @@
-import { useState, useMemo } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { leaves, employees } from '@/data/mockData';
-import { Leave } from '@/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { SearchableSelect } from '@/components/ui/searchable-select';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { format, differenceInDays } from 'date-fns';
-import { CalendarIcon, ArrowUpDown, Download } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useEffect, useState } from 'react';
+import { format, eachDayOfInterval } from 'date-fns';
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { toast } from 'sonner';
-import { exportToExcel } from '@/lib/excel';
-import { 
-  useReactTable, 
-  getCoreRowModel, 
-  getPaginationRowModel, 
-  getSortedRowModel,
-  getFilteredRowModel,
-  flexRender, 
-  SortingState,
-  ColumnDef,
-  ColumnFiltersState
-} from '@tanstack/react-table';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { fetchManHourLogs, submitManHourLog, deleteManHourLog, updateManHourLog } from '@/api/manhourTrackerApi';
+import { getManHoursFormData, ManHoursFormData } from '@/features/manhours/api/getFormData';
+import { TableSkeleton } from '@/components/shared/Skeletons';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { DashboardCard } from '@/components/shared/DashboardCard';
+import { exportToExcel } from '@/lib/excel';
 
-const formSchema = z.object({
-  employeeId: z.string().min(1, 'Please select an employee'),
-  leaveType: z.enum(['combo_off', 'sick_leave', 'no_paid']),
-  startDate: z.date(),
-  endDate: z.date(),
-  note: z.string(),
-}).refine(data => data.endDate >= data.startDate, {
-  message: "End date cannot be before start date",
-  path: ["endDate"],
-});
+const LIMIT = 50;
+const today = () => format(new Date(), 'yyyy-MM-dd');
 
-type LeaveWithDetails = Leave & {
-  employeeName: string;
-  duration: number;
-};
+// ─── Add Leave dialog ───────────────────────────────────────────
+function AddLeaveDialog({
+  open, onOpenChange, formData, onAdded, editing,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  formData: ManHoursFormData | null;
+  onAdded: () => void;
+  /** When set, the form edits this existing leave entry instead of adding new ones. */
+  editing?: any | null;
+}) {
+  const [employeeId, setEmployeeId] = useState('');
+  const [leaveTypeId, setLeaveTypeId] = useState('');
+  const [startDate, setStartDate] = useState(today());
+  const [endDate, setEndDate] = useState(today());
+  const [hours, setHours] = useState('8');
+  const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
 
-export function LeavesPage() {
-  const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      employeeId: '',
-      leaveType: 'combo_off',
-      startDate: new Date(),
-      endDate: new Date(),
-      note: '',
+  useEffect(() => {
+    if (!open) return;
+    if (editing) {
+      const day = String(editing.date).slice(0, 10);
+      setEmployeeId(editing.employeeId?._id || '');
+      setLeaveTypeId(editing.activityId?._id || '');
+      setStartDate(day);
+      setEndDate(day);
+      setHours(String(editing.hours));
+      setNote(editing.note || '');
+    } else {
+      setEmployeeId('');
+      setLeaveTypeId(formData?.leaveTypes?.[0]?._id || '');
+      setStartDate(today());
+      setEndDate(today());
+      setHours('8');
+      setNote('');
     }
-  });
+  }, [open, formData, editing]);
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    toast.success('Leave requested successfully!');
-    form.reset();
-  }
+  const hoursNum = Number(hours);
+  const hoursValid = hoursNum > 0 && hoursNum <= 24 && hoursNum % 0.5 === 0;
+  const rangeValid = !!startDate && !!endDate && endDate >= startDate;
+  const canSave = !!employeeId && !!leaveTypeId && hoursValid && rangeValid;
+  const noTypes = !!formData && formData.leaveTypes.length === 0;
 
-  const leavesData: LeaveWithDetails[] = useMemo(() => leaves.map(l => {
-    const emp = employees.find(e => e._id === l.employeeId);
-    const duration = differenceInDays(new Date(l.endDate), new Date(l.startDate)) + 1;
-    return {
-      ...l,
-      employeeName: emp?.name || 'Unknown',
-      duration
-    };
-  }), []);
-
-  const columns = useMemo<ColumnDef<LeaveWithDetails>[]>(() => [
-    {
-      accessorKey: 'employeeName',
-      header: ({ column }) => (
-        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Employee <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      ),
-    },
-    {
-      accessorKey: 'leaveType',
-      header: ({ column }) => (
-        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Leave Type <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const type = row.getValue('leaveType') as string;
-        if (type === 'sick_leave') return <Badge variant="outline" className="text-yellow-700 border-yellow-500 bg-yellow-50">Sick Leave</Badge>;
-        if (type === 'no_paid') return <Badge variant="outline" className="text-orange-700 border-orange-500 bg-orange-50">No Paid</Badge>;
-        return <Badge variant="outline" className="text-blue-700 border-blue-500 bg-blue-50">Combo Off</Badge>;
+  const save = async () => {
+    if (!canSave) return;
+    setSaving(true);
+    try {
+      const days = eachDayOfInterval({ start: new Date(`${startDate}T00:00:00`), end: new Date(`${endDate}T00:00:00`) });
+      const results = await Promise.allSettled(
+        days.map((d, i) => {
+          const date = format(d, 'yyyy-MM-dd');
+          // editing: the first day updates the existing entry, any extra days are added
+          if (editing && i === 0) {
+            return updateManHourLog(editing._id, { employeeId, activityId: leaveTypeId, date, hours: hoursNum, note });
+          }
+          return submitManHourLog({ activityId: leaveTypeId, employeeId, hours: hoursNum, date, note });
+        }),
+      );
+      const replaced = results.reduce((n, r) => n + (r.status === 'fulfilled' ? (r.value as any)?.replaced || 0 : 0), 0);
+      const failed = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+      if (failed.length === 0) {
+        const note = replaced > 0 ? ` ${replaced} timesheet ${replaced === 1 ? 'entry' : 'entries'} on those days ${replaced === 1 ? 'was' : 'were'} replaced by leave.` : '';
+        toast.success((editing ? (days.length > 1 ? `Leave updated and extended to ${days.length} days.` : 'Leave updated.') : `Leave added for ${days.length} day${days.length > 1 ? 's' : ''}.`) + note);
+      } else {
+        const msg = (failed[0].reason as any)?.response?.data?.message || (editing ? 'Failed to update leave' : 'Failed to add leave');
+        toast.error(`${failed.length} of ${days.length} days failed: ${msg}`);
       }
-    },
-    {
-      accessorKey: 'startDate',
-      header: ({ column }) => (
-        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Start Date <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      ),
-    },
-    {
-      accessorKey: 'endDate',
-      header: ({ column }) => (
-        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          End Date <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      ),
-    },
-    {
-      accessorKey: 'duration',
-      header: ({ column }) => (
-        <Button variant="ghost" className="p-0 hover:bg-transparent font-semibold w-full justify-end" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Duration <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      ),
-      cell: ({ row }) => <div className="text-right">{row.getValue('duration')} days</div>
-    },
-    {
-      accessorKey: 'status',
-      header: 'Status',
-      cell: ({ row }) => {
-        const status = row.getValue('status') as string;
-        return (
-          <Badge variant={status === 'active' ? "default" : "secondary"} className={status === 'active' ? "bg-green-100 text-green-800 hover:bg-green-200 border-none" : ""}>
-            {status === 'active' ? 'Active' : 'Ended'}
-          </Badge>
-        );
+      if (failed.length < days.length) {
+        onAdded();
+        onOpenChange(false);
       }
-    },
-    {
-      accessorKey: 'note',
-      header: 'Note',
-      cell: ({ row }) => <div className="max-w-[200px] truncate" title={row.getValue('note')}>{row.getValue('note')}</div>
-    },
-    {
-      id: 'actions',
-      header: 'Actions',
-      cell: ({ row }) => {
-        const status = row.getValue('status');
-        if (status === 'active') {
-          return <Button variant="outline" size="sm" onClick={() => toast.success('Leave ended')}>End Leave</Button>;
-        }
-        return <span className="text-muted-foreground">-</span>;
-      }
+    } finally {
+      setSaving(false);
     }
-  ], []);
-
-  const table = useReactTable({
-    data: leavesData,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
-    state: { sorting, columnFilters },
-    initialState: {
-      pagination: { pageSize: 10 },
-    },
-  });
-
-  const handleExport = () => {
-    const dataToExport = table.getFilteredRowModel().rows.map(row => ({
-      Employee: row.original.employeeName,
-      'Leave Type': row.original.leaveType,
-      'Start Date': row.original.startDate,
-      'End Date': row.original.endDate,
-      'Duration (Days)': row.original.duration,
-      Status: row.original.status,
-      Note: row.original.note,
-    }));
-    exportToExcel(dataToExport, 'Leaves_Report');
   };
 
   return (
-    <div className="space-y-6">
+    <Dialog open={open} onOpenChange={(o) => !saving && onOpenChange(o)}>
+      <DialogContent className="max-w-md rounded-xl border-line bg-white">
+        <DialogHeader>
+          <DialogTitle className="text-[15px] font-semibold">{editing ? 'Edit Leave' : 'Add Leave'}</DialogTitle>
+          <DialogDescription className="text-[13px]">
+            {editing ? 'Change this leave. Extending the range adds the extra days.' : 'One entry is created for each day in the range.'}
+          </DialogDescription>
+        </DialogHeader>
 
-      <Card className="border-line">
-        <CardHeader>
-          <CardTitle className="text-slate-900">Add Leave Request</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="employeeId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Employee</FormLabel>
-                      <FormControl>
-                        <SearchableSelect
-                          options={employees.map(e => ({ label: e.name, value: e._id }))}
-                          value={field.value}
-                          onChange={field.onChange}
-                          placeholder="Select an employee"
-                          searchPlaceholder="Search employees..."
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="leaveType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Leave Type</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select leave type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="combo_off">Combo Off</SelectItem>
-                          <SelectItem value="sick_leave">Sick Leave</SelectItem>
-                          <SelectItem value="no_paid">No Paid</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="startDate"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col pt-2.5">
-                      <FormLabel className="mb-1">Start Date</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
-                              {field.value ? format(field.value, "PPP") : <span>Pick a start date</span>}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="endDate"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col pt-2.5">
-                      <FormLabel className="mb-1">End Date</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
-                              {field.value ? format(field.value, "PPP") : <span>Pick an end date</span>}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <FormField
-                control={form.control}
-                name="note"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Note</FormLabel>
-                    <FormControl>
-                      <Textarea placeholder="Any additional notes..." className="resize-none" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" className="w-full md:w-auto bg-blue-600 hover:bg-blue-700">
-                Submit Leave
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
-
-      <Card className="border-line">
-        <CardHeader className="flex flex-col md:flex-row items-center justify-between gap-4">
-          <CardTitle className="text-slate-900">Leaves Directory</CardTitle>
-          <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-            <Select
-              value={(table.getColumn('employeeName')?.getFilterValue() as string) ?? ""}
-              onValueChange={(val) => table.getColumn('employeeName')?.setFilterValue(val === 'all' ? '' : val)}
-            >
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="All Employees" />
-              </SelectTrigger>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Employee</Label>
+            <Select value={employeeId} onValueChange={setEmployeeId}>
+              <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Employees</SelectItem>
-                {employees.map(e => <SelectItem key={e._id} value={e.name}>{e.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            
-            <Select
-              value={(table.getColumn('leaveType')?.getFilterValue() as string) ?? ""}
-              onValueChange={(val) => table.getColumn('leaveType')?.setFilterValue(val === 'all' ? '' : val)}
-            >
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="All Leave Types" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Leave Types</SelectItem>
-                <SelectItem value="combo_off">Combo Off</SelectItem>
-                <SelectItem value="sick_leave">Sick Leave</SelectItem>
-                <SelectItem value="no_paid">No Paid</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button onClick={handleExport} className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white">
-              <Download className="h-4 w-4 mr-2" /> Export
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="md:hidden space-y-4">
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <div key={row.id} className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col gap-2">
-                  {row.getVisibleCells().map((cell) => {
-                    const getHeaderLabel = (id: string) => {
-                      if (id === 'employeeName') return 'Employee';
-                      if (id === 'leaveType') return 'Leave Type';
-                      if (id === 'startDate') return 'Start Date';
-                      if (id === 'endDate') return 'End Date';
-                      if (id === 'duration') return 'Duration';
-                      if (id === 'status') return 'Status';
-                      if (id === 'note') return 'Note';
-                      return id;
-                    };
-                    return (
-                      <div key={cell.id} className="flex justify-between items-center text-sm border-b border-slate-50 last:border-0 pb-2 last:pb-0">
-                        <span className="font-semibold text-slate-600 mr-4">
-                          {getHeaderLabel(cell.column.id)}
-                        </span>
-                        <span className="text-right text-slate-800 break-words max-w-[60%]">
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              ))
-            ) : (
-              <div className="text-center p-4 text-slate-500">No leave records found.</div>
-            )}
-          </div>
-          <div className="hidden md:block rounded-md border">
-            <Table>
-              <TableHeader>
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => {
-                      return (
-                        <TableHead key={header.id}>
-                          {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                        </TableHead>
-                      )
-                    })}
-                  </TableRow>
+                {formData?.employees.map((e) => (
+                  <SelectItem key={e._id} value={e._id}>{e.name}</SelectItem>
                 ))}
-              </TableHeader>
-              <TableBody>
-                {table.getRowModel().rows?.length ? (
-                  table.getRowModel().rows.map((row) => (
-                    <TableRow key={row.id}>
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </TableCell>
-                      ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Leave type</Label>
+            <Select value={leaveTypeId} onValueChange={setLeaveTypeId} disabled={noTypes}>
+              <SelectTrigger><SelectValue placeholder={noTypes ? 'No leave types found' : 'Select leave type'} /></SelectTrigger>
+              <SelectContent>
+                {formData?.leaveTypes.map((t) => (
+                  <SelectItem key={t._id} value={t._id}>{t.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {noTypes && <p className="text-xs text-ink-secondary">Create an activity with "leave" in its name (e.g. "Sick leave 2026") to use it here.</p>}
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="leave-start">From</Label>
+              <Input id="leave-start" type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); if (e.target.value > endDate) setEndDate(e.target.value); }} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="leave-end">To</Label>
+              <Input id="leave-end" type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="leave-hours">Hrs/day</Label>
+              <Input id="leave-hours" type="number" step="0.5" min="0.5" max="24" value={hours} onChange={(e) => setHours(e.target.value)} />
+            </div>
+          </div>
+          {!rangeValid && <p className="text-xs text-red-600">End date cannot be before start date.</p>}
+          {!hoursValid && <p className="text-xs text-red-600">Hours must be a multiple of 0.5, up to 24.</p>}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="leave-note">Note</Label>
+            <Textarea id="leave-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional" />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving} className="h-8 text-[13px]">Cancel</Button>
+          <Button onClick={save} disabled={!canSave || saving} className="h-8 bg-primary text-[13px] hover:bg-primary-hover">
+            {saving ? 'Saving...' : editing ? 'Save changes' : 'Add leave'}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Page ───────────────────────────────────────────────────────
+export function LeavesPage() {
+  const [logs, setLogs] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [formData, setFormData] = useState<ManHoursFormData | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<any | null>(null);
+  const [deleting, setDeleting] = useState<any | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    getManHoursFormData().then(setFormData).catch(() => toast.error('Failed to load employees'));
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        setIsLoading(true);
+        const res = await fetchManHourLogs({ leave: 'only', page, limit: LIMIT });
+        setLogs(res.data || []);
+        setTotal(res.total || 0);
+      } catch (err) {
+        console.error('Failed to load leaves', err);
+        toast.error('Failed to load leaves');
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+  }, [page, reloadKey]);
+
+  const reload = () => setReloadKey((k) => k + 1);
+
+  const [isExporting, setIsExporting] = useState(false);
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      // fetch every leave entry, not just the visible page
+      const res = await fetchManHourLogs({ leave: 'only', page: 1, limit: 100000 });
+      const rows: any[] = res.data || [];
+      if (rows.length === 0) {
+        toast.error('No leave to export');
+        return;
+      }
+      const data = rows
+        .slice()
+        .sort((x, y) => (x.employeeId?.name || '').localeCompare(y.employeeId?.name || '') || String(x.date).localeCompare(String(y.date)))
+        .map((l) => ({
+          Employee: l.employeeId?.name || '-',
+          'Leave Type': l.activityId?.name || 'Leave',
+          Date: l.date ? format(new Date(l.date), 'dd MMM yyyy') : '-',
+          Hours: l.hours,
+          Note: l.note || '',
+        }));
+      exportToExcel(data, `Leave_Report_${format(new Date(), 'yyyy-MM-dd')}`, 'Leaves');
+    } catch (err) {
+      console.error('Failed to export leaves', err);
+      toast.error('Failed to export leave');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+  const totalPages = Math.ceil(total / LIMIT) || 1;
+
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    setIsDeleting(true);
+    try {
+      await deleteManHourLog(deleting._id);
+      toast.success('Leave entry deleted');
+      setDeleting(null);
+      reload();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to delete entry');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  return (
+    <div className="flex h-full min-h-[420px] flex-col gap-4">
+      <div className="flex shrink-0 justify-end gap-2">
+        <Button variant="outline" onClick={handleExport} disabled={isExporting || total === 0} className="h-8 gap-1.5 text-[13px]">
+          <Download className="h-4 w-4" />
+          {isExporting ? 'Exporting...' : 'Export to Excel'}
+        </Button>
+        <Button onClick={() => setAdding(true)} className="h-8 gap-1.5 bg-primary text-[13px] hover:bg-primary-hover">
+          <Plus className="h-4 w-4" />
+          Add Leave
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <TableSkeleton rows={8} cols={5} className="flex-1" />
+      ) : (
+        <DashboardCard
+          title="Leave Entries"
+          actions={<span className="text-xs text-ink-secondary">{total} total</span>}
+          className="min-h-0 flex-1"
+          bodyClassName="p-0 pt-0"
+        >
+          {logs.length === 0 ? (
+            <EmptyState title="No leave recorded" description="Leave you add will appear here, separate from the timesheet." />
+          ) : (
+            <>
+              <div className="min-h-0 flex-1 overflow-auto">
+                <Table>
+                  <TableHeader className="sticky top-0 z-10">
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Employee</TableHead>
+                      <TableHead>Leave type</TableHead>
+                      <TableHead className="text-right">Hours</TableHead>
+                      <TableHead>Note</TableHead>
+                      <TableHead className="w-44" />
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={columns.length} className="h-24 text-center">
-                      No leave records found.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-          <div className="flex items-center justify-end space-x-2 py-4">
-            <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
-              Previous
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
-              Next
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {logs.map((log) => (
+                      <TableRow key={log._id}>
+                        <TableCell className="whitespace-nowrap font-medium">{log.date ? format(new Date(log.date), 'dd MMM yyyy') : '-'}</TableCell>
+                        <TableCell>{log.employeeId?.name || '-'}</TableCell>
+                        <TableCell>
+                          <span className="inline-flex rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                            {log.activityId?.name || 'Leave'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-right">{log.hours} hrs</TableCell>
+                        <TableCell className="max-w-[240px] truncate text-ink-secondary" title={log.note}>{log.note || '-'}</TableCell>
+                        <TableCell className="whitespace-nowrap text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 gap-1.5 text-[13px] text-primary hover:bg-primary-tint hover:text-primary"
+                            onClick={() => setEditing(log)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 gap-1.5 text-[13px] text-logout hover:bg-orange-50 hover:text-logout"
+                            onClick={() => setDeleting(log)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Delete
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="flex shrink-0 items-center justify-between gap-3 border-t border-line pt-3">
+                <div className="text-[13px] text-ink-secondary">
+                  Showing {Math.min((page - 1) * LIMIT + 1, total)} to {Math.min(page * LIMIT, total)} of {total} entries
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="h-8 text-[13px]" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                    <ChevronLeft className="mr-1 h-4 w-4" />Previous
+                  </Button>
+                  <span className="px-2 text-[13px] text-ink-secondary">Page {page} of {totalPages}</span>
+                  <Button variant="outline" size="sm" className="h-8 text-[13px]" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
+                    Next<ChevronRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </DashboardCard>
+      )}
+
+      <AddLeaveDialog
+        open={adding || !!editing}
+        onOpenChange={(o) => {
+          if (!o) {
+            setAdding(false);
+            setEditing(null);
+          }
+        }}
+        formData={formData}
+        editing={editing}
+        onAdded={() => {
+          if (!editing) setPage(1);
+          reload();
+        }}
+      />
+
+      <AlertDialog open={!!deleting} onOpenChange={(o) => !o && !isDeleting && setDeleting(null)}>
+        <AlertDialogContent className="rounded-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this leave entry?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleting?.employeeId?.name} · {deleting?.hours} hrs on {deleting?.date ? format(new Date(deleting.date), 'dd MMM yyyy') : '-'}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeleting}
+              onClick={(e) => {
+                e.preventDefault();
+                confirmDelete();
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

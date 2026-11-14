@@ -2,7 +2,6 @@ import { Routes, Route, Navigate } from 'react-router';
 import { LoginPage } from './features/auth/pages/LoginPage';
 import { SidebarLayout } from './components/layout/SidebarLayout';
 import { DashboardPage } from './pages/DashboardPage';
-import { ManHoursPage } from './features/manhours/pages/ManHoursPage';
 import { ProjectsPage } from './pages/ProjectsPage';
 import { SalespersonsPage } from './pages/SalespersonsPage';
 import { LeavesPage } from './pages/LeavesPage';
@@ -11,7 +10,6 @@ import { ReportByProjectPage } from './pages/ReportByProjectPage';
 import { SalespersonReportPage } from './pages/SalespersonReportPage';
 import { ProjectDetailsPage } from './pages/ProjectDetailsPage';
 import { TimesheetPage } from './pages/TimesheetPage';
-import { SettingsPage } from './pages/SettingsPage';
 import { Toaster } from 'sonner';
 import { useAuth } from './features/auth/hooks/useAuth';
 
@@ -38,18 +36,17 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route element={<ProtectedRoute><SidebarLayout /></ProtectedRoute>}>
           <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/manhours" element={<AdminRoute><ManHoursPage /></AdminRoute>} />
+          <Route path="/manhours" element={<Navigate to="/timesheet" replace />} />
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/salesman/:salespersonId" element={<ProjectsPage />} />
           <Route path="/projects/:projectId" element={<ProjectDetailsPage />} />
           <Route path="/timesheet" element={<TimesheetPage />} />
           <Route path="/salespersons" element={<AdminRoute><SalespersonsPage /></AdminRoute>} />
           <Route path="/salesperson" element={<Navigate to="/salespersons" replace />} />
-          <Route path="/leaves" element={<LeavesPage />} />
+          <Route path="/leaves" element={<AdminRoute><LeavesPage /></AdminRoute>} />
           <Route path="/reports/by-employee" element={<AdminRoute><ReportByEmployeePage /></AdminRoute>} />
           <Route path="/reports/by-salesperson" element={<SalespersonReportPage />} />
           <Route path="/reports/by-project" element={<ReportByProjectPage />} />
-          <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
         </Route>
       </Routes>
       <Toaster position="top-right" richColors />

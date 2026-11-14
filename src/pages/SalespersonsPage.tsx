@@ -1,3 +1,4 @@
+import { TableSkeleton } from '@/components/shared/Skeletons';
 import { useState, useEffect, useMemo, Component, ErrorInfo, ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -22,7 +23,7 @@ import {
   ColumnDef
 } from '@tanstack/react-table';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowUpDown, Loader2, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { SearchableSelect } from '@/components/ui/searchable-select';
@@ -262,11 +263,7 @@ export function SalespersonsPage() {
   });
 
   if (isLoading) {
-    return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-      </div>
-    );
+    return <TableSkeleton />;
   }
 
   return (

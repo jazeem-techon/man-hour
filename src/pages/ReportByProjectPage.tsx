@@ -209,7 +209,7 @@ export function ReportByProjectPage() {
                             <TableCell className="text-right text-muted-foreground">{eb.lastDate}</TableCell>
                           </TableRow>
                         ))}
-                        <TableRow className="bg-blue-50 font-bold text-slate-900 hover:bg-blue-50">
+                        <TableRow className="bg-primary-tint font-semibold text-ink hover:bg-primary-tint">
                           <TableCell colSpan={2}>Grand Total</TableCell>
                           <TableCell className="text-right">{totalHours} hrs</TableCell>
                           <TableCell className="text-right">{pManHours.length}</TableCell>

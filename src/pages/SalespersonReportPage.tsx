@@ -1,3 +1,4 @@
+import { TableSkeleton } from '@/components/shared/Skeletons';
 import { useState, useEffect, useMemo, Component, ErrorInfo, ReactNode } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -17,7 +18,7 @@ import {
   ColumnDef
 } from '@tanstack/react-table';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
-import { ArrowUpDown, Loader2, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { fetchSalespeopleWithTargets } from '@/api/manhourTrackerApi';
@@ -250,11 +251,7 @@ export function SalespersonReportPage() {
   });
 
   if (isLoading) {
-    return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-      </div>
-    );
+    return <TableSkeleton />;
   }
 
   return (
@@ -410,7 +407,7 @@ export function SalespersonReportPage() {
                   )}
                 </TableBody>
                 <TableFooter>
-                  <TableRow className="bg-slate-50 hover:bg-slate-50 font-bold">
+                  <TableRow className="bg-gray-50 hover:bg-gray-50 font-semibold">
                     {table.getHeaderGroups()[0].headers.map((header, i) => {
                       const id = header.column.id;
                       if (id === 'targetAmount') {

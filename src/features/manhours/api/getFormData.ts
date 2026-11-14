@@ -4,12 +4,15 @@ import { Project, Employee } from '@/types';
 export interface Activity {
   _id: string;
   name: string;
+  isLeave?: boolean;
 }
 
 export interface ManHoursFormData {
   projects: Project[];
   employees: Employee[];
+  /** Regular activities (leave types excluded; they live on the Leaves page). */
   activities: Activity[];
+  leaveTypes: Activity[];
 }
 
 /**
@@ -31,6 +34,7 @@ export async function getManHoursFormData(): Promise<ManHoursFormData> {
   return {
     projects: projectsData,
     employees: employeesData,
-    activities: activitiesData
+    activities: activitiesData.filter((a: Activity) => !a.isLeave),
+    leaveTypes: activitiesData.filter((a: Activity) => a.isLeave),
   };
 }

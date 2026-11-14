@@ -1,10 +1,11 @@
+import { TableSkeleton } from '@/components/shared/Skeletons';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, ArrowLeft, Banknote, Activity, Briefcase, Users } from 'lucide-react';
+import { ArrowLeft, Banknote, Activity, Briefcase, Users } from 'lucide-react';
 import { fetchProjectDetails } from '@/api/manhourTrackerApi';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils';
@@ -60,11 +61,7 @@ export function ProjectDetailsPage() {
   }, [projectId]);
 
   if (isLoading) {
-    return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-      </div>
-    );
+    return <TableSkeleton />;
   }
 
   const actualData = projectData?.data || projectData;

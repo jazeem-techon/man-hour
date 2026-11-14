@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router';
-import { LayoutDashboard, Clock, Briefcase, UserCircle, FileText, Settings, type LucideIcon } from 'lucide-react';
+import { LayoutDashboard, Clock, Briefcase, UserCircle, FileText, CalendarOff, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
@@ -8,11 +8,10 @@ type NavItem = { to: string; label: string; icon: LucideIcon; adminOnly?: boolea
 
 const mainNav: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/manhours', label: 'Log Hours', icon: Clock, adminOnly: true },
-  { to: '/projects', label: 'Projects', icon: Briefcase },
   { to: '/timesheet', label: 'Timesheet', icon: FileText },
+  { to: '/leaves', label: 'Leaves', icon: CalendarOff, adminOnly: true },
+  { to: '/projects', label: 'Projects', icon: Briefcase },
   { to: '/salespersons', label: 'Salespersons', icon: UserCircle, adminOnly: true },
-  { to: '/settings', label: 'Settings', icon: Settings, adminOnly: true },
 ];
 
 const reportNav: { to: string; label: string; color: string; adminOnly?: boolean }[] = [

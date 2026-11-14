@@ -74,8 +74,7 @@ export const submitManHourLog = async (data: {
   task?: string;
   hours: number;
   date: string;
-  note: string;
-  sendToWhatsAppGroup?: boolean;
+  note: string;
 }) => {
   const response = await api.post('/manhour-tracker/log', data);
   return response.data;
@@ -86,6 +85,8 @@ export const fetchManHourLogs = async (params?: {
   employeeId?: string;
   startDate?: string;
   endDate?: string;
+  /** "only" = leave entries, "include" = timesheet + leave; omitted = timesheet entries without leave */
+  leave?: "only" | "include";
   page?: number;
   limit?: number;
 }) => {
@@ -122,8 +123,11 @@ export const createActivity = async (data: { name: string }) => {
   return response.data;
 };
 
-export const fetchBusyEmployees = async (startDate: string, endDate?: string) => {
+export const fetchBusyEmployees = async (startDate: string, endDate?: string, leaveOnly = false) => {
   let url = `/manhour-tracker/busy-employees?startDate=${startDate}`;
+  if (leaveOnly) {
+    url += `&leave=only`;
+  }
   if (endDate) {
     url += `&endDate=${endDate}`;
   }
@@ -131,18 +135,20 @@ export const fetchBusyEmployees = async (startDate: string, endDate?: string) =>
   return response.data;
 };
 
-// ─── WhatsApp ────────────────────────────────────────────────────
-export const fetchWhatsAppStatus = async () => {
-  const response = await api.get('/whatsapp/status');
+export const updateManHourLog = async (
+  logId: string,
+  data: { hours?: number; date?: string; note?: string; task?: string; employeeId?: string; activityId?: string; projectId?: string },
+) => {
+  const response = await api.put(`/manhour-tracker/log/${logId}`, data);
   return response.data;
 };
 
-export const logoutWhatsApp = async () => {
-  const response = await api.post('/whatsapp/logout');
+export const deleteManHourLog = async (logId: string) => {
+  const response = await api.delete(`/manhour-tracker/log/${logId}`);
   return response.data;
 };
 
-export const sendWhatsAppMessage = async (data: { groupName?: string; message: string }) => {
-  const response = await api.post('/whatsapp/send', data);
-  return response.data;
+export const fetchFrequentProjectEmployees = async (projectId: string, limit = 6) => {
+  const response = await api.get(`/manhour-tracker/projects/${projectId}/frequent-employees`, { params: { limit } });
+  return response.data as { employeeId: string; entries: number; hours: number; lastDate: string }[];
 };

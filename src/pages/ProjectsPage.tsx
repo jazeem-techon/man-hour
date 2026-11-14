@@ -1,5 +1,5 @@
+import { TableSkeleton } from '@/components/shared/Skeletons';
 import { useState, useEffect, useMemo } from 'react';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,7 @@ import {
   ColumnDef
 } from '@tanstack/react-table';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
-import { ArrowUpDown, Loader2, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, Search, X, Columns3, Calendar as CalendarIcon } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
@@ -262,11 +262,7 @@ export function ProjectsPage() {
   const totals = backendTotals || { revenue: 0, totalCost: 0, laborCost: 0, grossProfit: 0, net: 0 };
 
   if (isLoading) {
-    return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-      </div>
-    );
+    return <TableSkeleton />;
   }
 
   return (
@@ -275,26 +271,40 @@ export function ProjectsPage() {
 
       <Card className="border-line">
         <CardHeader>
-          <CardTitle className="text-slate-900">Projects Directory</CardTitle>
+          <CardTitle>Projects Directory</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col lg:flex-row lg:items-center py-4 justify-between px-2 gap-4">
-            <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-3 w-full lg:w-auto">
-              <Input
-                placeholder="Filter projects..."
-                value={(table.getColumn("projectName")?.getFilterValue() as string) ?? ""}
-                onChange={(event) =>
-                  table.getColumn("projectName")?.setFilterValue(event.target.value)
-                }
-                className="w-full sm:max-w-[200px]"
-              />
+          <div className="flex flex-col gap-3 py-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:w-auto">
+              {/* search */}
+              <div className="flex h-9 w-full items-center gap-2 rounded-lg border border-line bg-white px-3 sm:w-[240px]">
+                <Search className="h-4 w-4 shrink-0 text-ink-muted" />
+                <input
+                  placeholder="Search projects..."
+                  value={(table.getColumn("projectName")?.getFilterValue() as string) ?? ""}
+                  onChange={(event) => table.getColumn("projectName")?.setFilterValue(event.target.value)}
+                  className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-ink-secondary"
+                />
+                {((table.getColumn("projectName")?.getFilterValue() as string) ?? "") !== "" && (
+                  <button
+                    type="button"
+                    aria-label="Clear search"
+                    onClick={() => table.getColumn("projectName")?.setFilterValue("")}
+                    className="text-ink-muted hover:text-ink"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* salesman */}
               <Select
                 value={(table.getColumn("salespersonName")?.getFilterValue() as string) || "all"}
                 onValueChange={(value) =>
                   table.getColumn("salespersonName")?.setFilterValue(value === "all" ? "" : value)
                 }
               >
-                <SelectTrigger className="w-full sm:max-w-[200px]">
+                <SelectTrigger className="h-9 w-full text-[13px] sm:w-[190px]">
                   <SelectValue placeholder="All Salesmen" />
                 </SelectTrigger>
                 <SelectContent>
@@ -306,26 +316,47 @@ export function ProjectsPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <div className="flex items-center flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                <Input
+
+              {/* date range as one control */}
+              <div className="flex h-9 w-full items-center gap-2 rounded-lg border border-line bg-white px-3 sm:w-auto">
+                <CalendarIcon className="h-4 w-4 shrink-0 text-ink-muted" />
+                <input
                   type="date"
+                  aria-label="From date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="flex-1"
+                  className="bg-transparent text-[13px] text-ink outline-none"
                 />
-                <span className="text-slate-500 font-medium">to</span>
-                <Input
+                <span className="text-ink-muted">–</span>
+                <input
                   type="date"
+                  aria-label="To date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="flex-1"
+                  className="bg-transparent text-[13px] text-ink outline-none"
                 />
               </div>
+
+              {(((table.getColumn("projectName")?.getFilterValue() as string) ?? "") !== "" ||
+                ((table.getColumn("salespersonName")?.getFilterValue() as string) ?? "") !== "") && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    table.getColumn("projectName")?.setFilterValue("");
+                    table.getColumn("salespersonName")?.setFilterValue("");
+                  }}
+                  className="text-[13px] font-medium text-primary hover:underline"
+                >
+                  Reset filters
+                </button>
+              )}
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full sm:w-auto lg:ml-auto">
-                  Columns <ChevronDown className="ml-2 h-4 w-4" />
+                <Button variant="outline" className="h-9 w-full gap-2 text-[13px] sm:w-auto lg:ml-auto">
+                  <Columns3 className="h-4 w-4 text-ink-secondary" />
+                  Columns
+                  <ChevronDown className="h-4 w-4 opacity-60" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -444,7 +475,7 @@ export function ProjectsPage() {
                 )}
               </TableBody>
               <TableFooter>
-                <TableRow className="bg-slate-50 hover:bg-slate-50 font-bold">
+                <TableRow className="bg-gray-50 hover:bg-gray-50 font-semibold">
                   {table.getHeaderGroups()[0].headers.map((header, i) => {
                     const id = header.column.id;
                     if (id === 'revenue' || id === 'financials_revenue' || id === 'financials.revenue') {
@@ -468,7 +499,7 @@ export function ProjectsPage() {
                     return <TableCell key={id}></TableCell>
                   })}
                 </TableRow>
-                <TableRow className="bg-slate-50 hover:bg-slate-50 font-bold border-t">
+                <TableRow className="bg-gray-50 hover:bg-gray-50 font-semibold border-t">
                   <TableCell colSpan={table.getHeaderGroups()[0].headers.length}>
                     <div className="flex justify-end gap-12 pr-4 sm:pr-8">
                       <div className="flex items-center gap-3">

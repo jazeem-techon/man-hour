@@ -1,7 +1,8 @@
+import { DashboardSkeleton } from '@/components/shared/Skeletons';
 import { useState, useEffect, useRef } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  Loader2, Lock, Bold, Italic, Underline, Strikethrough, List, ListOrdered, Calendar, TrendingUp,
+  Lock, Bold, Italic, Underline, Strikethrough, List, ListOrdered, Calendar, TrendingUp,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -506,11 +507,7 @@ export function DashboardPage() {
   }, [period, year, quarter, month, isAdmin, isSalesperson]);
 
   if (isLoading) {
-    return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   return (

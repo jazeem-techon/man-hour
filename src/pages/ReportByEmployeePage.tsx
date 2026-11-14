@@ -1,17 +1,22 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { format, differenceInDays } from 'date-fns';
-import { CalendarIcon, Download, Clock, Briefcase, CalendarDays, Loader2 } from 'lucide-react';
+import { format } from 'date-fns';
+import { CalendarIcon, Download, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DateRange } from 'react-day-picker';
 import { exportToExcel } from '@/lib/excel';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { fetchEmployees, fetchManHourLogs } from '@/api/manhourTrackerApi';
+import { TableSkeleton, StatStripSkeleton } from '@/components/shared/Skeletons';
+import { StatStrip } from '@/components/shared/StatStrip';
+import { DashboardCard } from '@/components/shared/DashboardCard';
+import { EmptyState } from '@/components/shared/EmptyState';
+
+const fmtDate = (d?: string) => (d ? format(new Date(d), 'dd MMM yyyy') : '-');
+const fmtHours = (h: number) => (Math.round(h * 10) / 10).toLocaleString();
 
 export function ReportByEmployeePage() {
   const [employees, setEmployees] = useState<any[]>([]);
@@ -27,9 +32,6 @@ export function ReportByEmployeePage() {
       try {
         const data = await fetchEmployees();
         setEmployees(data || []);
-        if (data && data.length > 0) {
-          setSelectedEmployee(data[0]._id);
-        }
       } catch (err) {
         console.error("Failed to load employees", err);
       } finally {
@@ -53,7 +55,7 @@ export function ReportByEmployeePage() {
             params.endDate = toDate.toISOString();
         }
 
-        const data = await fetchManHourLogs(params);
+        const data = await fetchManHourLogs({ ...params, leave: "include" });
         setLogs(data.data || []);
       } catch (err) {
         console.error("Failed to load logs", err);
@@ -67,23 +69,51 @@ export function ReportByEmployeePage() {
 
   const employee = employees.find(e => e._id === selectedEmployee);
   
-  // Data Filtering for Leaves (no backend API yet, defaulting to empty)
-  const eLeaves: any[] = []; 
+  // Leave entries come back as logs on leave activities. Split them from worked hours.
+  const isLeaveLog = (l: any) => !!l.activityId?.isLeave;
+  const workLogs = logs.filter((l) => !isLeaveLog(l));
+  const leaveLogs = logs.filter(isLeaveLog);
 
-  // Summaries
-  const totalHours = logs.reduce((sum, log) => sum + (log.hours || 0), 0);
-  
+  // Merge consecutive leave days of the same type into one range.
+  const eLeaves: { _id: string; leaveType: string; startDate: string; endDate: string; days: number }[] = (() => {
+    const byType = new Map<string, Set<string>>();
+    leaveLogs.forEach((l) => {
+      const type = l.activityId?.name || 'Leave';
+      const day = String(l.date).slice(0, 10);
+      if (!byType.has(type)) byType.set(type, new Set());
+      byType.get(type)!.add(day);
+    });
+    const ranges: { _id: string; leaveType: string; startDate: string; endDate: string; days: number }[] = [];
+    byType.forEach((daySet, type) => {
+      const days = Array.from(daySet).sort();
+      let start = days[0];
+      let prev = days[0];
+      let count = 1;
+      const push = () => ranges.push({ _id: type + start, leaveType: type, startDate: start, endDate: prev, days: count });
+      for (let i = 1; i < days.length; i++) {
+        const gap = (new Date(days[i]).getTime() - new Date(prev).getTime()) / 86400000;
+        if (gap === 1) { prev = days[i]; count++; }
+        else { push(); start = days[i]; prev = days[i]; count = 1; }
+      }
+      push();
+    });
+    return ranges.sort((x, y) => y.startDate.localeCompare(x.startDate));
+  })();
+
+  // Summaries (worked hours only; leave is shown separately)
+  const totalHours = workLogs.reduce((sum, log) => sum + (log.hours || 0), 0);
+
   // Project Breakdown
   const projectMap = new Map<string, any>();
-  logs.forEach(log => {
+  workLogs.forEach(log => {
     const isProject = !!log.projectId;
     const id = isProject ? log.projectId._id : (log.activityId ? log.activityId._id : 'unknown');
     const name = isProject ? log.projectId.projectName : (log.activityId ? log.activityId.name : 'Unknown');
-    
+
     if (!projectMap.has(id)) {
       projectMap.set(id, { projectName: name, hours: 0, entries: 0, lastDate: log.date });
     }
-    
+
     const p = projectMap.get(id);
     p.hours += (log.hours || 0);
     p.entries += 1;
@@ -94,7 +124,7 @@ export function ReportByEmployeePage() {
 
   const projectBreakdown = Array.from(projectMap.values()).sort((a, b) => b.hours - a.hours);
   const uniqueProjects = projectBreakdown.length;
-  const leaveDays = eLeaves.reduce((sum, l) => sum + (differenceInDays(new Date(l.endDate), new Date(l.startDate)) + 1), 0);
+  const leaveDays = eLeaves.reduce((sum, l) => sum + l.days, 0);
 
   const handleExport = () => {
     if (!employee) return;
@@ -111,237 +141,161 @@ export function ReportByEmployeePage() {
   };
 
   if (isLoadingEmployees) {
-    return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-      </div>
-    );
+    return <TableSkeleton />;
   }
 
+  const maxHours = projectBreakdown[0]?.hours || 1;
+  const dateLabel = dateRange?.from
+    ? dateRange.to
+      ? `${format(dateRange.from, 'LLL dd, y')} - ${format(dateRange.to, 'LLL dd, y')}`
+      : format(dateRange.from, 'LLL dd, y')
+    : 'Pick a date range';
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Filter bar */}
+      <div className="flex flex-col gap-3 rounded-xl border border-line bg-white p-3 md:flex-row md:items-center">
+        <div className="flex flex-1 flex-col gap-3 md:flex-row">
+          <SearchableSelect
+            options={employees.map(e => ({ label: e.name, value: e._id }))}
+            value={selectedEmployee}
+            onChange={setSelectedEmployee}
+            placeholder="Select Employee"
+            searchPlaceholder="Search employees..."
+            defaultOpen={!selectedEmployee}
+            className="h-9 w-full bg-white text-[13px] md:w-[280px]"
+          />
 
-      <Card className="border-blue-100 shadow-sm bg-blue-50/50">
-        <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-center">
-          <div className="flex-1 w-full flex flex-col md:flex-row gap-4">
-            <SearchableSelect
-              options={employees.map(e => ({ label: e.name, value: e._id }))}
-              value={selectedEmployee}
-              onChange={setSelectedEmployee}
-              placeholder="Select Employee"
-              searchPlaceholder="Search employees..."
-              className="w-full md:w-[300px] bg-white"
-            />
-
+          <div className="flex items-center gap-1">
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   id="date"
-                  variant={"outline"}
-                  className={cn(
-                    "w-full md:w-[300px] justify-start text-left font-normal bg-white",
-                    !dateRange && "text-muted-foreground"
-                  )}
+                  variant="outline"
+                  className={cn('h-9 w-full justify-start bg-white text-left text-[13px] font-normal md:w-[280px]', !dateRange && 'text-muted-foreground')}
                 >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateRange?.from ? (
-                    dateRange.to ? (
-                      <>
-                        {format(dateRange.from, "LLL dd, y")} -{" "}
-                        {format(dateRange.to, "LLL dd, y")}
-                      </>
-                    ) : (
-                      format(dateRange.from, "LLL dd, y")
-                    )
-                  ) : (
-                    <span>Pick a date range</span>
-                  )}
+                  <CalendarIcon className="mr-2 h-4 w-4 text-ink-secondary" />
+                  {dateLabel}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  initialFocus
-                  mode="range"
-                  defaultMonth={dateRange?.from}
-                  selected={dateRange}
-                  onSelect={setDateRange}
-                  numberOfMonths={2}
-                />
+                <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={setDateRange} numberOfMonths={2} />
               </PopoverContent>
             </Popover>
+            {dateRange?.from && (
+              <button
+                type="button"
+                aria-label="Clear date range"
+                onClick={() => setDateRange(undefined)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line text-ink-secondary hover:bg-gray-50 hover:text-ink"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
+        </div>
 
-          <Button onClick={handleExport} className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white shadow-sm">
-            <Download className="h-4 w-4 mr-2" /> Export to Excel
-          </Button>
-        </CardContent>
-      </Card>
+        <Button onClick={handleExport} disabled={!employee} className="h-9 w-full gap-2 bg-primary text-[13px] hover:bg-primary-hover md:w-auto">
+          <Download className="h-4 w-4" /> Export to Excel
+        </Button>
+      </div>
 
-      {employee && (
+      {!employee ? (
+        <DashboardCard title="Employee Report" className="min-h-[360px]">
+          <EmptyState title="Select an employee" description="Pick an employee above to see their hours, projects and leave." />
+        </DashboardCard>
+      ) : isLoadingLogs ? (
+        <div className="space-y-4">
+          <StatStripSkeleton count={3} />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <TableSkeleton rows={5} cols={4} />
+            <TableSkeleton rows={5} cols={4} />
+          </div>
+        </div>
+      ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card className="border-blue-100 shadow-sm relative overflow-hidden">
-              {isLoadingLogs && <div className="absolute inset-0 bg-white/50 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-blue-600" /></div>}
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-slate-900">Total Hours</CardTitle>
-                <Clock className="h-5 w-5 text-blue-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-blue-700">{totalHours} hrs</div>
-              </CardContent>
-            </Card>
-            <Card className="border-blue-100 shadow-sm relative overflow-hidden">
-              {isLoadingLogs && <div className="absolute inset-0 bg-white/50 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-blue-600" /></div>}
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-slate-900">Projects/Activities Involved</CardTitle>
-                <Briefcase className="h-5 w-5 text-blue-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-blue-700">{uniqueProjects}</div>
-              </CardContent>
-            </Card>
-            <Card className="border-blue-100 shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-slate-900">Leave Days Taken</CardTitle>
-                <CalendarDays className="h-5 w-5 text-blue-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-blue-700">{leaveDays} days</div>
-              </CardContent>
-            </Card>
-          </div>
+          <StatStrip
+            stats={[
+              { label: 'Total Hours', value: `${fmtHours(totalHours)} hrs` },
+              { label: 'Projects / Activities', value: String(uniqueProjects) },
+              { label: 'Leave Days Taken', value: `${leaveDays} ${leaveDays === 1 ? 'day' : 'days'}` },
+            ]}
+          />
 
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card className="border-blue-100 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-slate-900">Leave History</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="md:hidden space-y-4">
-                  {eLeaves.length > 0 ? (
-                    eLeaves.map(l => (
-                      <div key={l._id} className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col gap-2">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            {l.leaveType === 'sick_leave' ? <Badge variant="outline" className="text-yellow-700 border-yellow-500 bg-yellow-50">Sick Leave</Badge> :
-                             l.leaveType === 'no_paid' ? <Badge variant="outline" className="text-orange-700 border-orange-500 bg-orange-50">No Paid</Badge> :
-                             <Badge variant="outline" className="text-blue-700 border-blue-500 bg-blue-50">Combo Off</Badge>}
-                          </div>
-                          <span className="capitalize text-sm font-medium text-muted-foreground">{l.status}</span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm pt-2 border-t border-slate-50 mt-1">
-                          <span className="text-slate-500">From: {l.startDate}</span>
-                          <span className="text-slate-500">To: {l.endDate}</span>
-                        </div>
+          <div className="grid items-start gap-4 lg:grid-cols-5">
+            {/* Leave history */}
+            <DashboardCard
+              title="Leave History"
+              className="min-h-0 lg:col-span-2"
+              actions={<span className="text-xs text-ink-secondary">{leaveDays} {leaveDays === 1 ? 'day' : 'days'} total</span>}
+            >
+              {eLeaves.length === 0 ? (
+                <EmptyState title="No leave taken" description="Leave recorded for this employee will appear here." className="min-h-[160px]" />
+              ) : (
+                <ul className="divide-y divide-dashed divide-line">
+                  {eLeaves.map((l) => (
+                    <li key={l._id} className="flex items-center justify-between gap-3 py-3 first:pt-0">
+                      <div className="min-w-0">
+                        <span className="inline-flex max-w-full truncate rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">{l.leaveType}</span>
+                        <p className="mt-1.5 text-xs text-ink-secondary">
+                          {fmtDate(l.startDate)}
+                          {l.endDate !== l.startDate && ` – ${fmtDate(l.endDate)}`}
+                        </p>
                       </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">No leave history found.</div>
-                  )}
-                </div>
-                <div className="hidden md:block">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Start Date</TableHead>
-                        <TableHead>End Date</TableHead>
-                        <TableHead>Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {eLeaves.length > 0 ? (
-                        eLeaves.map(l => (
-                          <TableRow key={l._id}>
+                      <span className="shrink-0 text-sm font-medium text-ink">{l.days} {l.days === 1 ? 'day' : 'days'}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </DashboardCard>
+
+            {/* Project breakdown */}
+            <DashboardCard
+              title="Project Breakdown"
+              className="min-h-0 lg:col-span-3"
+              actions={<span className="text-xs text-ink-secondary">{projectBreakdown.length} {projectBreakdown.length === 1 ? 'item' : 'items'}</span>}
+              bodyClassName="p-0 pt-0"
+            >
+              {projectBreakdown.length === 0 ? (
+                <EmptyState title="No hours logged" description="Hours logged by this employee will appear here." className="min-h-[200px]" />
+              ) : (
+                <>
+                  <div className="max-h-[520px] overflow-auto">
+                    <Table>
+                      <TableHeader className="sticky top-0 z-10">
+                        <TableRow>
+                          <TableHead>Project / Activity</TableHead>
+                          <TableHead className="w-[200px]">Hours</TableHead>
+                          <TableHead className="text-right">Entries</TableHead>
+                          <TableHead className="text-right">Last Date</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {projectBreakdown.map((pb) => (
+                          <TableRow key={pb.projectName}>
+                            <TableCell className="font-medium text-ink">{pb.projectName}</TableCell>
                             <TableCell>
-                              {l.leaveType === 'sick_leave' ? <Badge variant="outline" className="text-yellow-700 border-yellow-500 bg-yellow-50">Sick Leave</Badge> :
-                               l.leaveType === 'no_paid' ? <Badge variant="outline" className="text-orange-700 border-orange-500 bg-orange-50">No Paid</Badge> :
-                               <Badge variant="outline" className="text-blue-700 border-blue-500 bg-blue-50">Combo Off</Badge>}
+                              <div className="flex items-center gap-3">
+                                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+                                  <div className="h-full rounded-full bg-primary" style={{ width: `${Math.max((pb.hours / maxHours) * 100, 3)}%` }} />
+                                </div>
+                                <span className="w-14 shrink-0 text-right text-[13px] font-medium text-ink">{fmtHours(pb.hours)} hrs</span>
+                              </div>
                             </TableCell>
-                            <TableCell>{l.startDate}</TableCell>
-                            <TableCell>{l.endDate}</TableCell>
-                            <TableCell className="capitalize text-muted-foreground">{l.status}</TableCell>
+                            <TableCell className="text-right text-ink-secondary">{pb.entries}</TableCell>
+                            <TableCell className="whitespace-nowrap text-right text-ink-secondary">{fmtDate(pb.lastDate)}</TableCell>
                           </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">No leave history found.</TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-blue-100 shadow-sm relative overflow-hidden">
-              {isLoadingLogs && <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10"><Loader2 className="h-6 w-6 animate-spin text-blue-600" /></div>}
-              <CardHeader>
-                <CardTitle className="text-slate-900">Project Breakdown</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="md:hidden space-y-4">
-                  {projectBreakdown.length > 0 ? (
-                    <>
-                      {projectBreakdown.map(pb => (
-                        <div key={pb.projectName} className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col gap-2">
-                          <div className="flex justify-between items-start">
-                            <div className="font-medium text-slate-800">{pb.projectName}</div>
-                            <div className="font-bold text-blue-700">{pb.hours} hrs</div>
-                          </div>
-                          <div className="flex justify-between items-center text-sm pt-2 border-t border-slate-50 mt-1">
-                            <span className="text-slate-500">Entries: {pb.entries}</span>
-                            <span className="text-slate-500">Last: {pb.lastDate ? format(new Date(pb.lastDate), 'dd MMM yyyy') : '-'}</span>
-                          </div>
-                        </div>
-                      ))}
-                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex justify-between items-center font-bold text-slate-900 mt-2">
-                        <span>Grand Total</span>
-                        <span>{totalHours} hrs ({logs.length} entries)</span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">No project hours found.</div>
-                  )}
-                </div>
-                <div className="hidden md:block">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Project / Activity</TableHead>
-                        <TableHead className="text-right">Total Hours</TableHead>
-                        <TableHead className="text-right">Entries</TableHead>
-                        <TableHead className="text-right">Last Date</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {projectBreakdown.length > 0 ? (
-                        <>
-                          {projectBreakdown.map(pb => (
-                            <TableRow key={pb.projectName}>
-                              <TableCell className="font-medium">{pb.projectName}</TableCell>
-                              <TableCell className="text-right font-semibold">{pb.hours} hrs</TableCell>
-                              <TableCell className="text-right text-muted-foreground">{pb.entries}</TableCell>
-                              <TableCell className="text-right text-muted-foreground">{pb.lastDate ? format(new Date(pb.lastDate), 'dd MMM yyyy') : '-'}</TableCell>
-                            </TableRow>
-                          ))}
-                          <TableRow className="bg-blue-50 font-bold text-slate-900 hover:bg-blue-50">
-                            <TableCell>Grand Total</TableCell>
-                            <TableCell className="text-right">{totalHours} hrs</TableCell>
-                            <TableCell className="text-right">{logs.length}</TableCell>
-                            <TableCell></TableCell>
-                          </TableRow>
-                        </>
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">No project hours found.</TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-line bg-primary-tint px-4 py-3 text-[13px] font-semibold text-ink">
+                    <span>Grand Total</span>
+                    <span>{fmtHours(totalHours)} hrs · {workLogs.length} entries</span>
+                  </div>
+                </>
+              )}
+            </DashboardCard>
           </div>
         </>
       )}

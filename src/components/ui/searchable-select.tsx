@@ -14,6 +14,9 @@ export interface SearchableSelectProps {
   onChange: (value: string) => void;
   placeholder?: string;
   searchPlaceholder?: string;
+  /** Open the popup on first render (e.g. to prompt for a required choice). */
+  defaultOpen?: boolean;
+  disabled?: boolean;
   className?: string;
 }
 
@@ -23,9 +26,11 @@ export function SearchableSelect({
   onChange,
   placeholder = "Select...",
   searchPlaceholder = "Search...",
+  defaultOpen = false,
+  disabled = false,
   className
 }: SearchableSelectProps) {
-  const [open, setOpen] = React.useState(false)
+  const [open, setOpen] = React.useState(defaultOpen)
   const [search, setSearch] = React.useState("")
 
   const filteredOptions = React.useMemo(() => {
@@ -35,17 +40,20 @@ export function SearchableSelect({
   }, [options, search])
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(o) => !disabled && setOpen(o)}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
           role="combobox"
           aria-expanded={open}
+          disabled={disabled}
           className={cn("w-full justify-between font-normal", className)}
         >
-          {value
-            ? options.find((option) => option.value === value)?.label
-            : placeholder}
+          <span className="min-w-0 flex-1 truncate text-left">
+            {value
+              ? options.find((option) => option.value === value)?.label
+              : placeholder}
+          </span>
           <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -59,7 +67,12 @@ export function SearchableSelect({
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="max-h-[300px] overflow-y-auto p-1">
+        {/* stopPropagation: a parent Dialog locks wheel/touch scrolling outside its own content, which would freeze this list */}
+        <div
+          className="max-h-[300px] overflow-y-auto p-1"
+          onWheel={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+        >
           {filteredOptions.length === 0 ? (
             <div className="py-6 text-center text-sm">No option found.</div>
           ) : (
