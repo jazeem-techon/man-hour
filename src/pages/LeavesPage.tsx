@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { SearchableMultiSelect } from '@/components/ui/searchable-multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
@@ -34,7 +36,8 @@ function AddLeaveDialog({
   /** When set, the form edits this existing leave entry instead of adding new ones. */
   editing?: any | null;
 }) {
-  const [employeeId, setEmployeeId] = useState('');
+  const [employeeIds, setEmployeeIds] = useState<string[]>([]);
+  const employeeOptions = (formData?.employees || []).map((e) => ({ label: e.name, value: e._id }));
   const [leaveTypeId, setLeaveTypeId] = useState('');
   const [startDate, setStartDate] = useState(today());
   const [endDate, setEndDate] = useState(today());
@@ -46,14 +49,14 @@ function AddLeaveDialog({
     if (!open) return;
     if (editing) {
       const day = String(editing.date).slice(0, 10);
-      setEmployeeId(editing.employeeId?._id || '');
+      setEmployeeIds(editing.employeeId?._id ? [editing.employeeId._id] : []);
       setLeaveTypeId(editing.activityId?._id || '');
       setStartDate(day);
       setEndDate(day);
       setHours(String(editing.hours));
       setNote(editing.note || '');
     } else {
-      setEmployeeId('');
+      setEmployeeIds([]);
       setLeaveTypeId(formData?.leaveTypes?.[0]?._id || '');
       setStartDate(today());
       setEndDate(today());
@@ -65,7 +68,7 @@ function AddLeaveDialog({
   const hoursNum = Number(hours);
   const hoursValid = hoursNum > 0 && hoursNum <= 24 && hoursNum % 0.5 === 0;
   const rangeValid = !!startDate && !!endDate && endDate >= startDate;
-  const canSave = !!employeeId && !!leaveTypeId && hoursValid && rangeValid;
+  const canSave = employeeIds.length > 0 && !!leaveTypeId && hoursValid && rangeValid;
   const noTypes = !!formData && formData.leaveTypes.length === 0;
 
   const save = async () => {
@@ -74,25 +77,27 @@ function AddLeaveDialog({
     try {
       const days = eachDayOfInterval({ start: new Date(`${startDate}T00:00:00`), end: new Date(`${endDate}T00:00:00`) });
       const results = await Promise.allSettled(
-        days.map((d, i) => {
+        employeeIds.flatMap((employeeId) => days.map((d, i) => {
           const date = format(d, 'yyyy-MM-dd');
           // editing: the first day updates the existing entry, any extra days are added
           if (editing && i === 0) {
             return updateManHourLog(editing._id, { employeeId, activityId: leaveTypeId, date, hours: hoursNum, note });
           }
           return submitManHourLog({ activityId: leaveTypeId, employeeId, hours: hoursNum, date, note });
-        }),
+        })),
       );
+      const totalEntries = results.length;
       const replaced = results.reduce((n, r) => n + (r.status === 'fulfilled' ? (r.value as any)?.replaced || 0 : 0), 0);
       const failed = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
       if (failed.length === 0) {
         const note = replaced > 0 ? ` ${replaced} timesheet ${replaced === 1 ? 'entry' : 'entries'} on those days ${replaced === 1 ? 'was' : 'were'} replaced by leave.` : '';
-        toast.success((editing ? (days.length > 1 ? `Leave updated and extended to ${days.length} days.` : 'Leave updated.') : `Leave added for ${days.length} day${days.length > 1 ? 's' : ''}.`) + note);
+        const empText = employeeIds.length > 1 ? ` for ${employeeIds.length} employees` : '';
+        toast.success((editing ? (days.length > 1 ? `Leave updated and extended to ${days.length} days.` : 'Leave updated.') : `Leave added for ${days.length} day${days.length > 1 ? 's' : ''}${empText}.`) + note);
       } else {
         const msg = (failed[0].reason as any)?.response?.data?.message || (editing ? 'Failed to update leave' : 'Failed to add leave');
-        toast.error(`${failed.length} of ${days.length} days failed: ${msg}`);
+        toast.error(`${failed.length} of ${totalEntries} entries failed: ${msg}`);
       }
-      if (failed.length < days.length) {
+      if (failed.length < totalEntries) {
         onAdded();
         onOpenChange(false);
       }
@@ -114,14 +119,23 @@ function AddLeaveDialog({
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label>Employee</Label>
-            <Select value={employeeId} onValueChange={setEmployeeId}>
-              <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
-              <SelectContent>
-                {formData?.employees.map((e) => (
-                  <SelectItem key={e._id} value={e._id}>{e.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {editing ? (
+              <SearchableSelect
+                options={employeeOptions}
+                value={employeeIds[0] || ''}
+                onChange={(v) => setEmployeeIds(v ? [v] : [])}
+                placeholder="Select employee"
+                searchPlaceholder="Search employee..."
+              />
+            ) : (
+              <SearchableMultiSelect
+                options={employeeOptions}
+                value={employeeIds}
+                onChange={setEmployeeIds}
+                placeholder="Select employees"
+                searchPlaceholder="Search employee..."
+              />
+            )}
           </div>
 
           <div className="space-y-1.5">
