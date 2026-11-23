@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fetchManHourLogs } from '@/api/manhourTrackerApi';
+import { getManHoursFormData } from '../api/getFormData';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { cn } from '@/lib/utils';
 
@@ -28,25 +29,25 @@ function addPerson(groups: Map<string, { name: string; people: string[] }>, key:
 }
 
 /** Schedule: who works where on that day. */
-function buildSchedule(day: string, logs: any[]): string {
+function buildSchedule(day: string, logs: any[], names: Map<string, string>): string {
   const groups = new Map<string, { name: string; people: string[] }>();
   logs.forEach((log) => {
     const key = log.projectId?._id || log.activityId?._id || 'other';
-    const name = upper(log.projectId?.projectName || log.activityId?.name || 'OTHER');
+    const name = upper(names.get(log.projectId?._id) || log.projectId?.projectName || log.activityId?.name || 'OTHER');
     addPerson(groups, key, name, upper(log.employeeId?.name));
   });
   return [`*… ${dmy(day)} SCHEDULE …*`, ...formatBlocks(groups)].join('\n\n\n');
 }
 
 /** Absent: people on leave that day, listed under the project they most recently worked on. */
-function buildAbsent(day: string, leaveLogs: any[], recentLogs: any[]): string {
+function buildAbsent(day: string, leaveLogs: any[], recentLogs: any[], names: Map<string, string>): string {
   // newest project entry per employee
   const lastProject = new Map<string, { id: string; name: string; date: string }>();
   recentLogs.forEach((log) => {
     if (!log.projectId || !log.employeeId?._id) return;
     const prev = lastProject.get(log.employeeId._id);
     if (!prev || String(log.date) > prev.date) {
-      lastProject.set(log.employeeId._id, { id: log.projectId._id, name: upper(log.projectId.projectName), date: String(log.date) });
+      lastProject.set(log.employeeId._id, { id: log.projectId._id, name: upper(names.get(log.projectId._id) || log.projectId.projectName), date: String(log.date) });
     }
   });
 
@@ -71,13 +72,18 @@ export function ScheduleTemplate() {
     (async () => {
       setIsLoading(true);
       try {
+        // project name set in Log Hours, shown instead of the project label
+        const names = new Map<string, string>();
+        try {
+          (await getManHoursFormData()).projects.forEach((p: any) => { if (p.manhourName) names.set(p._id, p.manhourName); });
+        } catch { /* fall back to project labels */ }
         let build: () => string;
         let empty: boolean;
         if (mode === 'schedule') {
           const res = await fetchManHourLogs({ startDate: day, endDate: day, page: 1, limit: 10000 });
           const rows: any[] = res.data || [];
           empty = rows.length === 0;
-          build = () => buildSchedule(day, rows);
+          build = () => buildSchedule(day, rows, names);
         } else {
           const prevDay = ymd(addDays(new Date(`${day}T00:00:00`), -1));
           const weekAgo = ymd(addDays(new Date(`${day}T00:00:00`), -14));
@@ -88,7 +94,7 @@ export function ScheduleTemplate() {
           const leaveRows: any[] = leaveRes.data || [];
           const recentRows: any[] = recentRes.data || [];
           empty = leaveRows.length === 0;
-          build = () => buildAbsent(day, leaveRows, recentRows);
+          build = () => buildAbsent(day, leaveRows, recentRows, names);
         }
         if (cancelled) return;
         setIsEmpty(empty);

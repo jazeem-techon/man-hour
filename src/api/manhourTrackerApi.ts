@@ -152,3 +152,9 @@ export const fetchFrequentProjectEmployees = async (projectId: string, limit = 6
   const response = await api.get(`/manhour-tracker/projects/${projectId}/frequent-employees`, { params: { limit } });
   return response.data as { employeeId: string; entries: number; hours: number; lastDate: string }[];
 };
+
+/** Man-hour-only name for a project. Stored separately; never changes the tecbooks project. Empty name clears it. */
+export const saveProjectManhourName = async (projectId: string, name: string) => {
+  const response = await api.put(`/manhour-tracker/projects/${projectId}/manhour-name`, { name });
+  return response.data as { projectId: string; name: string };
+};

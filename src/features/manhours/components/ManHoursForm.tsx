@@ -14,7 +14,7 @@ import { format } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { submitManHourLog, updateManHourLog, deleteManHourLog, fetchBusyEmployees, fetchFrequentProjectEmployees } from '@/api/manhourTrackerApi';
+import { submitManHourLog, updateManHourLog, deleteManHourLog, fetchBusyEmployees, fetchFrequentProjectEmployees, saveProjectManhourName } from '@/api/manhourTrackerApi';
 import { EmployeePicker } from './EmployeePicker';
 
 const formSchema = z.object({
@@ -65,6 +65,9 @@ export function ManHoursForm({ projects, employees, onSuccess, editLogs }: ManHo
   const hours = form.watch('hours');
   const employeeIds = form.watch('employeeIds');
 
+  const [manhourNames, setManhourNames] = useState<Record<string, string>>(() =>
+    Object.fromEntries(projects.map((p: any) => [p._id, p.manhourName || ''])),
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [busyEmployeeIds, setBusyEmployeeIds] = useState<string[]>([]);
   const [leaveEmployeeIds, setLeaveEmployeeIds] = useState<string[]>([]);
@@ -196,6 +199,29 @@ export function ManHoursForm({ projects, employees, onSuccess, editLogs }: ManHo
               </FormItem>
             )}
           />
+
+          {selectedProject && (
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium">Project name <span className="font-normal text-ink-muted">(optional, saved for this project here only)</span></label>
+              <Input
+                placeholder="e.g. ALC"
+                maxLength={100}
+                value={manhourNames[selectedProject._id] ?? ''}
+                onChange={(e) => setManhourNames((m) => ({ ...m, [selectedProject._id]: e.target.value }))}
+                onBlur={async (e) => {
+                  const id = selectedProject._id;
+                  const name = e.target.value.trim();
+                  if (name === ((selectedProject as any).manhourName || '')) return;
+                  try {
+                    await saveProjectManhourName(id, name);
+                    (selectedProject as any).manhourName = name;
+                  } catch {
+                    toast.error('Failed to save project name');
+                  }
+                }}
+              />
+            </div>
+          )}
 
           <FormField
             control={form.control as any}
