@@ -40,23 +40,29 @@ export function LogsTable({ refreshKey = 0 }: { refreshKey?: number }) {
   const [editingLogs, setEditingLogs] = useState<EditableLog[] | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [editingGroup, setEditingGroup] = useState<any[] | null>(null);
-  const [deletingLog, setDeletingLog] = useState<any | null>(null);
+  const [deletingLogs, setDeletingLogs] = useState<any[] | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const confirmDelete = async () => {
-    if (!deletingLog) return;
+    if (!deletingLogs) return;
     setIsDeleting(true);
-    try {
-      await deleteManHourLog(deletingLog._id);
-      toast.success('Entry deleted');
-      setDeletingLog(null);
-      setSelectedGroup(null);
-      setReloadKey((k) => k + 1);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to delete entry');
-    } finally {
-      setIsDeleting(false);
+    const results = await Promise.allSettled(deletingLogs.map((log) => deleteManHourLog(log._id)));
+    const failed = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+    const deleted = results.length - failed.length;
+    if (failed.length === 0) {
+      toast.success(deleted === 1 ? 'Entry deleted' : `${deleted} entries deleted`);
+    } else {
+      const message = failed[0].reason?.response?.data?.message || 'Failed to delete entry';
+      toast.error(deleted > 0 ? `Deleted ${deleted} of ${results.length}. ${message}` : message);
     }
+    if (deleted > 0) {
+      // Step back if this emptied the last page
+      if (deleted === logs.length && page > 1 && page * limit >= totalCount) setPage(page - 1);
+      setReloadKey((k) => k + 1);
+    }
+    setDeletingLogs(null);
+    setSelectedGroup(null);
+    setIsDeleting(false);
   };
   const { isAdmin } = useAuth();
   const limit = 100;
@@ -165,6 +171,11 @@ export function LogsTable({ refreshKey = 0 }: { refreshKey?: number }) {
                       <Users className="w-4 h-4 mr-2" />
                       {group.employees.length} Employees
                     </Button>
+                    {isAdmin && (
+                      <Button variant="ghost" size="sm" onClick={() => setDeletingLogs(group.employees)} className="h-8 text-logout hover:bg-orange-50 hover:text-logout" aria-label="Delete entry">
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))
@@ -176,7 +187,7 @@ export function LogsTable({ refreshKey = 0 }: { refreshKey?: number }) {
           </div>
 
           {/* Desktop View */}
-          <table className="hidden w-full min-w-[820px] table-fixed text-[13px] md:table">
+          <table className="hidden w-full min-w-[910px] table-fixed text-[13px] md:table">
             <colgroup>
               <col className="w-[120px]" />
               <col className="w-[220px]" />
@@ -184,7 +195,7 @@ export function LogsTable({ refreshKey = 0 }: { refreshKey?: number }) {
               <col className="w-[120px]" />
               <col className="w-[100px]" />
               <col className="w-[140px]" />
-              {isAdmin && <col className="w-[90px]" />}
+              {isAdmin && <col className="w-[180px]" />}
             </colgroup>
             <thead className="sticky top-0 z-10 bg-gray-50">
               <tr className="text-left text-xs font-medium uppercase tracking-wider text-ink-secondary [&>th]:px-4 [&>th]:py-3 [&>th]:shadow-[inset_0_-1px_0_#E5E7EB]">
@@ -236,10 +247,14 @@ export function LogsTable({ refreshKey = 0 }: { refreshKey?: number }) {
                       {formatCurrency(group.totalCost)}
                     </td>
                     {isAdmin && (
-                      <td className="text-right">
+                      <td className="whitespace-nowrap text-right">
                         <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-[13px] text-primary hover:bg-primary-tint hover:text-primary" onClick={() => (group.projectId ? setEditingGroup(group.employees) : setSelectedGroup(group))}>
                           <Pencil className="h-3.5 w-3.5" />
                           Edit
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-[13px] text-logout hover:bg-orange-50 hover:text-logout" onClick={() => setDeletingLogs(group.employees)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete
                         </Button>
                       </td>
                     )}
@@ -358,7 +373,7 @@ export function LogsTable({ refreshKey = 0 }: { refreshKey?: number }) {
                             className="h-8 gap-1.5 text-[13px] text-logout hover:bg-orange-50 hover:text-logout"
                             onClick={() => {
                               setSelectedGroup(null);
-                              setDeletingLog(log);
+                              setDeletingLogs([log]);
                             }}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -390,12 +405,12 @@ export function LogsTable({ refreshKey = 0 }: { refreshKey?: number }) {
           </div>
         </DialogContent>
       </Dialog>
-      <AlertDialog open={!!deletingLog} onOpenChange={(o) => !o && !isDeleting && setDeletingLog(null)}>
+      <AlertDialog open={!!deletingLogs} onOpenChange={(o) => !o && !isDeleting && setDeletingLogs(null)}>
         <AlertDialogContent className="rounded-xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this entry?</AlertDialogTitle>
             <AlertDialogDescription>
-              {deletingLog?.employeeId?.name} · {deletingLog?.hours} hrs on {deletingLog?.date ? format(new Date(deletingLog.date), 'dd MMM yyyy') : '-'}. This removes it from the timesheet and reports.
+              {deletingLogs?.length === 1 ? deletingLogs[0].employeeId?.name : `${deletingLogs?.length ?? 0} employees`} · {deletingLogs?.reduce((sum, log) => sum + (log.hours || 0), 0)} hrs on {deletingLogs?.[0]?.date ? format(new Date(deletingLogs[0].date), 'dd MMM yyyy') : '-'}. This removes it from the timesheet and reports.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
